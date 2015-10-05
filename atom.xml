@@ -1,0 +1,432 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Thoughts Resampled]]></title>
+  <link href="http://blog.antlypls.com/atom.xml" rel="self"/>
+  <link href="http://blog.antlypls.com/"/>
+  <updated>2015-10-07T23:07:14+02:00</updated>
+  <id>http://blog.antlypls.com/</id>
+  <author>
+    <name><![CDATA[Anatoliy Plastinin]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Getting Started With Spark Streaming Using Docker]]></title>
+    <link href="http://blog.antlypls.com/blog/2015/10/05/getting-started-with-spark-streaming-using-docker/"/>
+    <updated>2015-10-05T00:45:13+02:00</updated>
+    <id>http://blog.antlypls.com/blog/2015/10/05/getting-started-with-spark-streaming-using-docker</id>
+    <content type="html"><![CDATA[<p>Stream processing technologies have been getting a lot of attention lately.
+You&rsquo;ve already might heard about <a href="http://kafka.apache.org/">Kafka</a>,
+<a href="http://spark.apache.org/">Spark</a> and
+its <a href="http://spark.apache.org/docs/latest/streaming-programming-guide.html">streaming extension</a>.</p>
+
+<p>If you&rsquo;ve always wanted to try Spark Streaming, but never found a time to give it a shot,
+this post provides you with easy steps on how to get development setup with Spark and Kafka using Docker.</p>
+
+<!--more-->
+
+
+<blockquote><p>Note:
+This walkthrough covers OS X and uses <a href="http://brew.sh/">Homebrew</a>,
+so you might want to install it first.
+For other platforms there won&rsquo;t be many differences.
+Please refer to corresponding software documentation for instructions for your platform.</p></blockquote>
+
+<p>We will use <code>DirectKafkaWordCount</code>
+<a href="https://github.com/apache/spark/blob/master/examples/src/main/scala/org/apache/spark/examples/streaming/DirectKafkaWordCount.scala">example</a>
+from spark distribution as basis for our demo.
+That example shows how to use Spark&rsquo;s Direct Kafka Stream.
+You can easily use another
+<a href="https://github.com/apache/spark/blob/master/examples/src/main/scala/org/apache/spark/examples/streaming/KafkaWordCount.scala">example that uses Receiver-based Approach</a>
+Discussion of different ways to integrate kafka that spark provides is out of scope of this post.
+Please checkout
+<a href="http://spark.apache.org/docs/latest/streaming-kafka-integration.html">kafka integration guide</a>
+for more details.</p>
+
+<p>Yes, doing another word count demo is boring,
+but our goal is to learn how to get evrything up and running together
+and <code>WordCount</code> suits this goal perfectly,
+rather than learn how to build distributed applications with Spark.</p>
+
+<p>If you want just to get code, you can find complete example
+<a href="https://github.com/antlypls/spark-kafka-docker-demo">here</a>.</p>
+
+<!--
+If you are not interested in scala setup and building example app,
+and want to jump into docker and spark, you can skip next section and go to here.
+-->
+
+
+<h2>The Code</h2>
+
+<p>We will use <a href="http://www.scala-sbt.org/">sbt</a> for building our project.
+To install it run: <code>brew install sbt</code>.</p>
+
+<p>Next, we need to setup
+<a href="http://www.scala-sbt.org/0.13/tutorial/Directories.html">sbt directory structure</a>
+for the project.
+Unfortunately <code>sbt</code> doesn&rsquo;t provide command to bootstrap a project,
+so you can create project with your IDE like Eclipse,
+or use <a href="https://gist.github.com/antlypls/ac2917c6c4451ecc2980">this shell script</a>.</p>
+
+<p>Now let’s go to code and do some configuration.</p>
+
+<p>Spark <a href="https://spark.apache.org/docs/latest/submitting-applications.html#bundling-your-applications-dependencies">requires</a>
+packaging all projects' dependencies alongside application,
+so we will build fat jar that contains app and all dependencies together.
+We will use sbt <a href="https://github.com/sbt/sbt-assembly">assembly plugin</a> for that.</p>
+
+<p>To set up this plugin create <code>project/assembly.sbt</code> file with following content:</p>
+
+<figure class='code'><figcaption><span>assembly.sbt</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="n">addSbtPlugin</span><span class="o">(</span><span class="s">&quot;com.eed3si9n&quot;</span> <span class="o">%</span> <span class="s">&quot;sbt-assembly&quot;</span> <span class="o">%</span> <span class="s">&quot;0.13.0&quot;</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Now let&rsquo;s setup our build configuration, <code>build.sbt</code> file should look like:</p>
+
+<figure class='code'><figcaption><span>build.sbt</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="n">name</span> <span class="o">:=</span> <span class="s">&quot;direct_kafka_word_count&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">scalaVersion</span> <span class="o">:=</span> <span class="s">&quot;2.10.5&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">val</span> <span class="n">sparkVersion</span> <span class="k">=</span> <span class="s">&quot;1.5.1&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">libraryDependencies</span> <span class="o">++=</span> <span class="nc">Seq</span><span class="o">(</span>
+</span><span class='line'>  <span class="s">&quot;org.apache.spark&quot;</span> <span class="o">%%</span> <span class="s">&quot;spark-core&quot;</span> <span class="o">%</span> <span class="n">sparkVersion</span> <span class="o">%</span> <span class="s">&quot;provided&quot;</span><span class="o">,</span>
+</span><span class='line'>  <span class="s">&quot;org.apache.spark&quot;</span> <span class="o">%%</span> <span class="s">&quot;spark-streaming&quot;</span> <span class="o">%</span> <span class="n">sparkVersion</span> <span class="o">%</span> <span class="s">&quot;provided&quot;</span><span class="o">,</span>
+</span><span class='line'>  <span class="o">(</span><span class="s">&quot;org.apache.spark&quot;</span> <span class="o">%%</span> <span class="s">&quot;spark-streaming-kafka&quot;</span> <span class="o">%</span> <span class="n">sparkVersion</span><span class="o">)</span> <span class="n">exclude</span> <span class="o">(</span><span class="s">&quot;org.spark-project.spark&quot;</span><span class="o">,</span> <span class="s">&quot;unused&quot;</span><span class="o">)</span>
+</span><span class='line'><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">assemblyJarName</span> <span class="n">in</span> <span class="n">assembly</span> <span class="o">:=</span> <span class="n">name</span><span class="o">.</span><span class="n">value</span> <span class="o">+</span> <span class="s">&quot;.jar&quot;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>At the moment of writing latest version of spark is <code>1.5.1</code> and scala is <code>2.10.5</code>
+for <code>2.10.x</code> series. Scala 2.10 is used because spark provides
+<a href="http://spark.apache.org/downloads.html">pre-built packages</a>
+for this version only.</p>
+
+<p>We don’t need to provide spark libs since they are provided by cluster manager,
+so those libs are marked as <code>provided</code>.</p>
+
+<p>That&rsquo;s all with build configuration, now let&rsquo;s write some code.
+App&rsquo;s code in <code>src/main/scala/com/example/spark/DirectKafkaWordCount.scala</code> should look like:</p>
+
+<figure class='code'><figcaption><span>src/main/scala/com/example/spark/DirectKafkaWordCount.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">package</span> <span class="nn">com.example.spark</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">import</span> <span class="nn">kafka.serializer.StringDecoder</span>
+</span><span class='line'><span class="k">import</span> <span class="nn">org.apache.spark.</span><span class="o">{</span><span class="nc">TaskContext</span><span class="o">,</span> <span class="nc">SparkConf</span><span class="o">}</span>
+</span><span class='line'><span class="k">import</span> <span class="nn">org.apache.spark.streaming.kafka.</span><span class="o">{</span><span class="nc">OffsetRange</span><span class="o">,</span> <span class="nc">HasOffsetRanges</span><span class="o">,</span> <span class="nc">KafkaUtils</span><span class="o">}</span>
+</span><span class='line'><span class="k">import</span> <span class="nn">org.apache.spark.streaming.</span><span class="o">{</span><span class="nc">Seconds</span><span class="o">,</span> <span class="nc">StreamingContext</span><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">object</span> <span class="nc">DirectKafkaWordCount</span> <span class="o">{</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">main</span><span class="o">(</span><span class="n">args</span><span class="k">:</span> <span class="kt">Array</span><span class="o">[</span><span class="kt">String</span><span class="o">])</span><span class="k">:</span> <span class="kt">Unit</span> <span class="o">=</span> <span class="o">{</span>
+</span><span class='line'>    <span class="k">if</span> <span class="o">(</span><span class="n">args</span><span class="o">.</span><span class="n">length</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="o">)</span> <span class="o">{</span>
+</span><span class='line'>      <span class="nc">System</span><span class="o">.</span><span class="n">err</span><span class="o">.</span><span class="n">println</span><span class="o">(</span><span class="n">s</span><span class="s">&quot;&quot;&quot;</span>
+</span><span class='line'><span class="s">        |Usage: DirectKafkaWordCount &lt;brokers&gt; &lt;topics&gt;</span>
+</span><span class='line'><span class="s">        |  &lt;brokers&gt; is a list of one or more Kafka brokers</span>
+</span><span class='line'><span class="s">        |  &lt;topics&gt; is a list of one or more kafka topics to consume from</span>
+</span><span class='line'><span class="s">        |</span>
+</span><span class='line'><span class="s">        &quot;&quot;&quot;</span><span class="o">.</span><span class="n">stripMargin</span><span class="o">)</span>
+</span><span class='line'>      <span class="nc">System</span><span class="o">.</span><span class="n">exit</span><span class="o">(</span><span class="mi">1</span><span class="o">)</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">val</span> <span class="nc">Array</span><span class="o">(</span><span class="n">brokers</span><span class="o">,</span> <span class="n">topics</span><span class="o">)</span> <span class="k">=</span> <span class="n">args</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Create context with 10 second batch interval</span>
+</span><span class='line'>    <span class="k">val</span> <span class="n">sparkConf</span> <span class="k">=</span> <span class="k">new</span> <span class="nc">SparkConf</span><span class="o">().</span><span class="n">setAppName</span><span class="o">(</span><span class="s">&quot;DirectKafkaWordCount&quot;</span><span class="o">)</span>
+</span><span class='line'>    <span class="k">val</span> <span class="n">ssc</span> <span class="k">=</span> <span class="k">new</span> <span class="nc">StreamingContext</span><span class="o">(</span><span class="n">sparkConf</span><span class="o">,</span> <span class="nc">Seconds</span><span class="o">(</span><span class="mi">10</span><span class="o">))</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Create direct kafka stream with brokers and topics</span>
+</span><span class='line'>    <span class="k">val</span> <span class="n">topicsSet</span> <span class="k">=</span> <span class="n">topics</span><span class="o">.</span><span class="n">split</span><span class="o">(</span><span class="s">&quot;,&quot;</span><span class="o">).</span><span class="n">toSet</span>
+</span><span class='line'>    <span class="k">val</span> <span class="n">kafkaParams</span> <span class="k">=</span> <span class="nc">Map</span><span class="o">[</span><span class="kt">String</span>, <span class="kt">String</span><span class="o">](</span><span class="s">&quot;metadata.broker.list&quot;</span> <span class="o">-&gt;</span> <span class="n">brokers</span><span class="o">)</span>
+</span><span class='line'>    <span class="k">val</span> <span class="n">messages</span> <span class="k">=</span> <span class="nc">KafkaUtils</span><span class="o">.</span><span class="n">createDirectStream</span><span class="o">[</span><span class="kt">String</span>, <span class="kt">String</span>, <span class="kt">StringDecoder</span>, <span class="kt">StringDecoder</span><span class="o">](</span>
+</span><span class='line'>      <span class="n">ssc</span><span class="o">,</span> <span class="n">kafkaParams</span><span class="o">,</span> <span class="n">topicsSet</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Get the lines, split them into words, count the words and print</span>
+</span><span class='line'>    <span class="k">val</span> <span class="n">lines</span> <span class="k">=</span> <span class="n">messages</span><span class="o">.</span><span class="n">map</span><span class="o">(</span><span class="k">_</span><span class="o">.</span><span class="n">_2</span><span class="o">)</span>
+</span><span class='line'>    <span class="k">val</span> <span class="n">words</span> <span class="k">=</span> <span class="n">lines</span><span class="o">.</span><span class="n">flatMap</span><span class="o">(</span><span class="k">_</span><span class="o">.</span><span class="n">split</span><span class="o">(</span><span class="s">&quot; &quot;</span><span class="o">))</span>
+</span><span class='line'>    <span class="k">val</span> <span class="n">wordCounts</span> <span class="k">=</span> <span class="n">words</span><span class="o">.</span><span class="n">map</span><span class="o">(</span><span class="n">x</span> <span class="k">=&gt;</span> <span class="o">(</span><span class="n">x</span><span class="o">,</span> <span class="mi">1L</span><span class="o">)).</span><span class="n">reduceByKey</span><span class="o">(</span><span class="k">_</span> <span class="o">+</span> <span class="k">_</span><span class="o">)</span>
+</span><span class='line'>    <span class="n">wordCounts</span><span class="o">.</span><span class="n">print</span><span class="o">()</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Start the computation</span>
+</span><span class='line'>    <span class="n">ssc</span><span class="o">.</span><span class="n">start</span><span class="o">()</span>
+</span><span class='line'>    <span class="n">ssc</span><span class="o">.</span><span class="n">awaitTermination</span><span class="o">()</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>And now you can run <code>sbt assembly</code>
+and find <code>direct_kafka_word_count.jar</code> file in
+<code>target/scala-2.10</code> directory.</p>
+
+<p>That’s all with coding. Let&rsquo;s see how to run it.</p>
+
+<h2>Installing Docker</h2>
+
+<p>To run this example we need two more things: Spark itself and Kafka server.</p>
+
+<p>And that&rsquo;s where Docker significantly helps us, since we don&rsquo;t need to install
+and configure required software, we will simply use Docker images for that.</p>
+
+<p>Easiest way to get Docker working on OS X is to use
+<a href="https://www.docker.com/docker-machine">docker-machine</a>,
+which helps to provision Docker on virtual machines.</p>
+
+<p>To set it up:</p>
+
+<ul>
+<li>Install <a href="https://www.virtualbox.org/">VirtualBox</a>, to run VM with Docker.</li>
+<li>Update homebrew to latest version <code>brew update</code>.</li>
+<li>Install required packages <code>brew install docker docker-machine docker-compose</code>.</li>
+</ul>
+
+
+<p>Another option to install everything is to use <a href="https://www.docker.com/toolbox">Docker Toolbox</a>,
+for more details on how to install toolbox check the
+<a href="http://docs.docker.com/mac/step_one/">official documentation</a>.</p>
+
+<p>Now we are ready to start Docker VM, run</p>
+
+<pre><code>docker-machine create --driver virtualbox --virtualbox-memory 2048 dev
+</code></pre>
+
+<p>This command downloads VM image with Docker host preinstalled,
+creates a VM named <code>dev</code> with 2Gb of memory and starts it.</p>
+
+<p>Now you need configure your shell to work with Docker client,
+just run <code>eval "$(docker-machine env dev)"</code>.
+Please note that you need to run this command each time you open a new terminal.</p>
+
+<h2>Containers Setup</h2>
+
+<p>Let’s specify our containers configuration using <code>docker-compose</code>.
+<code>docker-compose.yml</code> file defines containers and links between them.
+We will use following configuration:</p>
+
+<figure class='code'><figcaption><span>docker-compose.yml</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class='yaml'><span class='line'><span class="l-Scalar-Plain">kafka</span><span class="p-Indicator">:</span>
+</span><span class='line'>  <span class="l-Scalar-Plain">image</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">antlypls/kafka</span>
+</span><span class='line'>  <span class="l-Scalar-Plain">environment</span><span class="p-Indicator">:</span>
+</span><span class='line'>    <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">KAFKA=localhost:9092</span>
+</span><span class='line'>    <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">ZOOKEEPER=localhost:2181</span>
+</span><span class='line'>  <span class="l-Scalar-Plain">expose</span><span class="p-Indicator">:</span>
+</span><span class='line'>    <span class="p-Indicator">-</span> <span class="s">&quot;2181&quot;</span>
+</span><span class='line'>    <span class="p-Indicator">-</span> <span class="s">&quot;9092&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="l-Scalar-Plain">spark</span><span class="p-Indicator">:</span>
+</span><span class='line'>  <span class="l-Scalar-Plain">image</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">antlypls/spark:1.5.1</span>
+</span><span class='line'>  <span class="l-Scalar-Plain">command</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">bash</span>
+</span><span class='line'>  <span class="l-Scalar-Plain">volumes</span><span class="p-Indicator">:</span>
+</span><span class='line'>    <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">./target/scala-2.10:/app</span>
+</span><span class='line'>  <span class="l-Scalar-Plain">links</span><span class="p-Indicator">:</span>
+</span><span class='line'>   <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">kafka</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>A lot of things are going on here, let&rsquo;s go through it step by step.
+This <code>yml</code> file defines two services: <code>kafka</code> and <code>docker</code>.</p>
+
+<p><code>kafka</code> service runs <a href="https://github.com/antlypls/docker-kafka">image</a>
+based on <code>spotify/kafka</code> <a href="https://github.com/spotify/docker-kafka">repository</a>,
+this image provides everything we need for running kafka in one container:
+kafka broker and zookeeper server.</p>
+
+<p>Also two environment variables are added: <code>KAFKA</code> and <code>ZOOKEEPER</code>,
+those variables are helpful when you run kafka CLI tools inside kafka container,
+you will see how to do it later.</p>
+
+<p>We also  expose a kafka broker port <code>9092</code> and a port for zookeeper <code>2181</code>,
+so linked services can access it.</p>
+
+<p>Then <code>spark</code> service is defined.
+I&rsquo;ve prepared an <a href="https://github.com/antlypls/docker-spark">image</a> <code>antlypls/spark</code>,
+which provides spark <a href="http://spark.apache.org/docs/latest/running-on-yarn.html">running on YARN</a>.
+The image is slightly modified version of <code>sequenceiq/spark</code>
+<a href="https://github.com/sequenceiq/docker-spark">repository</a>,
+with <code>spark 1.5.1</code> and without a few packages that we don&rsquo;t need for this demo.</p>
+
+<p>We specify <code>bash</code> as command, since we want to have interactive shell session within the spark container.
+<code>volumes</code> option mounts build directory into the spark container,
+so we will be able to access <code>.jar</code> right in the container.
+At the end <code>kafka</code> service is linked to <code>spark</code>.</p>
+
+<p>And now we are ready to run everything together.</p>
+
+<p>Let&rsquo;s start all containers with <code>docker-compose</code>:
+<code>docker-compose run --rm spark</code> this starts kafka and then spark and logs us into spark container shell.
+The <code>--rm</code> flag makes <code>docker-compose</code> to delete corresponding <code>spark</code> container after run.</p>
+
+<p>But before running <code>DirectKafkaWordCount</code> app,
+we need to create a topic in a kafka broker that we are going to read from.
+Kafka distribution contains a few useful tools to manipulate topics and data:
+create/list topics, write text messages into a topic and etc.
+And we can run those tools within kafka container.
+To do that open a separate terminal session and run:</p>
+
+<pre><code>docker exec -it $(docker-compose ps -q kafka) bash
+</code></pre>
+
+<p>And now let&rsquo;s create a topic in kafka:</p>
+
+<pre><code>kafka-topics.sh --create --zookeeper $ZOOKEEPER --replication-factor 1 --partitions 2 --topic word-count
+</code></pre>
+
+<p>You can check that new topic has been created by running commands</p>
+
+<pre><code>$ kafka-topics.sh --list --zookeeper $ZOOKEEPER
+$ kafka-topics.sh --describe --zookeeper $ZOOKEEPER --topic word-count
+</code></pre>
+
+<p>Keep this shell session open, we will use it to add messages to the topic.</p>
+
+<p>Now go back to spark container shell and run</p>
+
+<pre><code>spark-submit \
+--master yarn-client \
+--class com.example.spark.DirectKafkaWordCount \
+app/direct_kafka_word_count.jar kafka:9092 word-count
+</code></pre>
+
+<p>Here we launch our application in <code>yarn-client</code> mode
+because we want to see output from the driver.</p>
+
+<p>You might see a lot of logs written to output, that is useful for debugging,
+but it might be hard to see actual app output.
+You could use following settings for <code>log4j</code>
+if you wanted to disable those debugging logs:</p>
+
+<figure class='code'><figcaption><span>log4j.properties</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='properties'><span class='line'><span class="na">log4j.rootCategory</span><span class="o">=</span><span class="s">INFO, console</span>
+</span><span class='line'><span class="na">log4j.appender.console</span><span class="o">=</span><span class="s">org.apache.log4j.ConsoleAppender</span>
+</span><span class='line'><span class="na">log4j.appender.console.target</span><span class="o">=</span><span class="s">System.err</span>
+</span><span class='line'><span class="na">log4j.appender.console.threshold</span><span class="o">=</span><span class="s">ERROR</span>
+</span><span class='line'><span class="na">log4j.appender.console.layout</span><span class="o">=</span><span class="s">org.apache.log4j.PatternLayout</span>
+</span><span class='line'><span class="na">log4j.appender.console.layout.ConversionPattern</span><span class="o">=</span><span class="s">%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Replace <code>$SPARK_HOME/conf/log4j.properties</code> file with one provided above.
+Or simply put it somewhere in container, e.g. in shared <code>app</code> directory and run app like</p>
+
+<pre><code>spark-submit \
+--master yarn-client \
+--driver-java-options "-Dlog4j.configuration=file:///app/log4j.properties" \
+--class com.example.spark.DirectKafkaWordCount \
+app/direct_kafka_word_count.jar kafka:9092 word-count
+</code></pre>
+
+<p>Note, that <code>docker-compose</code> updates <code>hosts</code> file in running containers,
+so linked services can be accessed using service name as a hostname.
+That&rsquo;s why in our demo we simply use <code>kafka:9090</code> as a broker address.</p>
+
+<p>Now let&rsquo;s add some data into the topic, just run following in the <code>kafka</code> container</p>
+
+<pre><code>kafka-console-producer.sh --broker-list $KAFKA --topic word-count
+</code></pre>
+
+<p>And for input like this:</p>
+
+<pre><code>Hello World
+!!!
+</code></pre>
+
+<p>You should see output from spark app like:</p>
+
+<pre><code>-------------------------------------------
+Time: 1234567890000 ms
+-------------------------------------------
+(Hello,1)
+(World,1)
+(!!!,1)
+</code></pre>
+
+<p><code>docker-compose</code> doesn&rsquo;t stop/delete linked containers when <code>run</code> command exits.
+ To stop linked containers run <code>docker-compose stop</code>, and <code>docker-compose rm</code> to delete them.</p>
+
+<p>And that&rsquo;s it, you have all set up for developing Spark Streaming apps.</p>
+
+<p>Happy hacking with Spark!</p>
+]]></content>
+  </entry>
+  
+</feed>
