@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: Mesos | Thoughts Resampled]]></title>
+  <link href="http://blog.antlypls.com/blog/categories/mesos/atom.xml" rel="self"/>
+  <link href="http://blog.antlypls.com/"/>
+  <updated>2015-11-13T09:06:48+01:00</updated>
+  <id>http://blog.antlypls.com/</id>
+  <author>
+    <name><![CDATA[Anatoliy Plastinin]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Running Spark-shell in Browser With Apache Mesos and Marathon]]></title>
+    <link href="http://blog.antlypls.com/blog/2015/11/13/running-spark-shell-in-browser-with-apache-mesos-and-marathon/"/>
+    <updated>2015-11-13T08:51:28+01:00</updated>
+    <id>http://blog.antlypls.com/blog/2015/11/13/running-spark-shell-in-browser-with-apache-mesos-and-marathon</id>
+    <content type="html"><![CDATA[<p>I’d like to share a small trick on how to run
+<a href="http://spark.apache.org/docs/latest/quick-start.html#interactive-analysis-with-the-spark-shell"><code>spark-shell</code></a>
+as a web app using
+<a href="http://mesos.apache.org/">Mesos</a> and <a href="https://github.com/mesosphere/marathon">Marathon framework</a>.</p>
+
+<p>This might be useful for debugging or just to try some spark code.
+And to do that you don’t need to install spark on a cluster.</p>
+
+<!--more-->
+
+
+<p>All you need are Mesos cluster, Marathon framework running on top of Mesos,
+and Java runtime installed on Mesos slaves.</p>
+
+<blockquote><p>Sorry guys, I&rsquo;m not going to discuss here how to setup Mesos cluster,
+that would be another story.
+Here I just assume that you already have running environment with mentioned components.</p></blockquote>
+
+<p>Another secret ingredient is a <a href="https://github.com/yudai/gotty">gotty tool</a>,
+it simply wraps terminal session into a web app.
+So the idea is to run <code>spark-shell</code> with <code>gotty</code> which is run by Marathon.
+Sounds simple? Here how it can be done.</p>
+
+<p>Let’s create a marathon app definition in a <code>spark-shell.json</code> file.
+You can read more about it <a href="https://mesosphere.github.io/marathon/docs/application-basics.html">here</a>.</p>
+
+<pre><code class="json spark-shell.json">{
+  "id": "/spark-shell",
+  "cmd": "./gotty -w -p $PORT0 --title-format 'Spark Shell' spark-1.5.1-bin-hadoop2.6/bin/spark-shell",
+  "cpus": 0.2,
+  "mem": 256,
+  "ports": [
+    0
+  ],
+  "instances": 1,
+  "env": {
+    "MESOS_NATIVE_JAVA_LIBRARY": "/usr/lib/libmesos.so",
+    "SPARK_EXECUTOR_URI": "http://d3kbcqa49mib13.cloudfront.net/spark-1.5.1-bin-hadoop2.6.tgz",
+    "MASTER": "mesos://zk://zk.cluster:2181/mesos"
+  },
+  "uris": [
+    "http://d3kbcqa49mib13.cloudfront.net/spark-1.5.1-bin-hadoop2.6.tgz",
+    "https://github.com/yudai/gotty/releases/download/v0.0.12/gotty_linux_amd64.tar.gz"
+  ]
+}
+</code></pre>
+
+<p>Here you might need to update <code>MESOS_NATIVE_JAVA_LIBRARY</code>, this value depends on your system and installation.
+<code>MASTER</code> should point to <a href="http://spark.apache.org/docs/latest/running-on-mesos.html#using-a-mesos-master-url">Mesos master</a>.
+You might also want to change port value if you use any kind of
+<a href="https://mesosphere.github.io/marathon/docs/service-discovery-load-balancing.html">service discovery</a> with Marathon.</p>
+
+<p><code>gotty</code> is used with following keys:</p>
+
+<ul>
+<li><code>-w</code> allows writes to a terminal session, so you can interact with shell.</li>
+<li><code>-p $PORT0</code> sets the port gotty listens to, <code>$PORT0</code> variable is assigned by Marathon.</li>
+</ul>
+
+
+<p>You can submit app to Marathon using your preferred http client tool,
+e.g. for <a href="https://github.com/jkbrzt/httpie">httpie</a> just run</p>
+
+<pre><code>http POST http://marathon.cluster/v2/apps &lt; spark-shell.json
+</code></pre>
+
+<p>After that you&rsquo;ll be able to see the new app in Marathon Web UI and its url once it&rsquo;s started.
+When you visit that URL you should see spark shell prompt.</p>
+
+<blockquote><p>You should understand all potential security problems with running a remote session in browser,
+so you might want to suspend/destroy app in Marathon when you finish playing with <code>spark-shell</code>.</p></blockquote>
+
+<p>You might also notice that it works fine for one browser session,
+but when two  sessions are opened simultaneously it fails with an error like:</p>
+
+<pre><code>Failed to start database 'metastore_db' with class loader org.apache.spark.sql.hive.client.IsolatedClientLoader$$anon$1@8ddbb68c
+...
+</code></pre>
+
+<p>That happens because gotty starts separate spar-shell process for each connection,
+and <code>spark-shell</code> creates a metastore_db in a working directory,
+so second <code>spark-shell</code> instance conflicts with alredy running one.</p>
+
+<p>To solve this let’s create a random working directory for each session,
+following trick worked well for me:</p>
+
+<pre><code>"cmd": "./gotty -w -p $PORT0 --title-format 'Spark Shell' sh -c 'dir=$RANDOM; mkdir $dir &amp;&amp; cd $dir &amp;&amp; ../spark-1.5.1-bin-hadoop2.6/bin/spark-shell'"
+</code></pre>
+
+<p>So a complete example is</p>
+
+<pre><code class="json spark-shell.json">{
+  "id": "/spark-shell",
+  "cmd": "./gotty -w -p $PORT0 --title-format 'Spark Shell' sh -c 'dir=$RANDOM; mkdir $dir &amp;&amp; cd $dir &amp;&amp; ../spark-1.5.1-bin-hadoop2.6/bin/spark-shell'",
+  "cpus": 0.2,
+  "mem": 256,
+  "ports": [
+    0
+  ],
+  "instances": 1,
+  "env": {
+    "MESOS_NATIVE_JAVA_LIBRARY": "/usr/lib/libmesos.so",
+    "SPARK_EXECUTOR_URI": "http://d3kbcqa49mib13.cloudfront.net/spark-1.5.1-bin-hadoop2.6.tgz",
+    "MASTER": "mesos://zk://zk.cluster:2181/mesos"
+  },
+  "uris": [
+    "http://d3kbcqa49mib13.cloudfront.net/spark-1.5.1-bin-hadoop2.6.tgz",
+    "https://github.com/yudai/gotty/releases/download/v0.0.12/gotty_linux_amd64.tar.gz"
+  ]
+}
+</code></pre>
+
+<p>That&rsquo;s all you need to start playing with spark-shell on Mesos,
+from here you can tweak settings for your needs, like
+enabling <a href="http://spark.apache.org/docs/latest/running-on-mesos.html#mesos-run-modes">coarse-grained mode</a> for spark,
+adding libraries and so on.</p>
+]]></content>
+  </entry>
+  
+</feed>

@@ -4,7 +4,7 @@
   <title><![CDATA[Category: Kafka | Thoughts Resampled]]></title>
   <link href="http://blog.antlypls.com/blog/categories/kafka/atom.xml" rel="self"/>
   <link href="http://blog.antlypls.com/"/>
-  <updated>2015-10-07T23:07:14+02:00</updated>
+  <updated>2015-11-13T09:06:48+01:00</updated>
   <id>http://blog.antlypls.com/</id>
   <author>
     <name><![CDATA[Anatoliy Plastinin]]></name>
@@ -53,12 +53,6 @@ rather than learn how to build distributed applications with Spark.</p>
 
 <p>If you want just to get code, you can find complete example
 <a href="https://github.com/antlypls/spark-kafka-docker-demo">here</a>.</p>
-
-<!--
-If you are not interested in scala setup and building example app,
-and want to jump into docker and spark, you can skip next section and go to here.
--->
-
 
 <h2>The Code</h2>
 
