@@ -9,10 +9,10 @@
   <meta name="author" content="Anatoliy Plastinin">
 
   
-  <meta name="description" content="I’d like to share a small trick on how to run
-spark-shell
-as a web app using
-Mesos and Marathon framework. This might be useful for debugging or just &hellip;">
+  <meta name="description" content="Column oriented data stores have proven its success for many analytical purposes.
+Such success was shown by RCFile
+and Apache ORC formats
+and their &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -72,6 +72,54 @@ Mesos and Marathon framework. This might be useful for debugging or just &hellip
     <div id="content">
       <div class="blog-index">
   
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/12/02/how-to-write-data-into-parquet/">How to Write Data into Parquet</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2015-12-02T00:46:12+01:00'><span class='date'><span class='date-month'>Dec</span> <span class='date-day'>2</span><span class='date-suffix'>nd</span>, <span class='date-year'>2015</span></span> <span class='time'>12:46 am</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>Column oriented data stores have proven its success for many analytical purposes.
+Such success was shown by <a href="https://en.wikipedia.org/wiki/RCFile">RCFile</a>
+and <a href="https://orc.apache.org/">Apache ORC</a> formats
+and their wide adoption in many distributed data processing tools in Hadoop ecosystem.</p>
+
+<p>Another columnar format that has gained popularity lately is
+<a href="https://parquet.apache.org/">Apache Parquet</a>,
+which is now top level Apache project.
+It is supported by many data processing tools including
+<a href="http://spark.apache.org/docs/latest/sql-programming-guide.html#parquet-files">Spark</a> and
+<a href="https://prestodb.io/overview.html">Presto</a> provide support for parquet format.</p>
+
+<p>Recently I&rsquo;ve been experimenting with storing data in the parquet format,
+so I thought it might be a good idea to share a few examples.
+This post covers the basics of how to write data into parquet.</p>
+
+</div>
+  
+  
+    <footer>
+      <a rel="full-article" href="/blog/2015/12/02/how-to-write-data-into-parquet/">Read on &rarr;</a>
+    </footer>
+  
+
+
+    </article>
   
   
     <article>
@@ -164,6 +212,10 @@ this post provides you with easy steps on how to get development setup with Spar
     <section>
   <h1>Recent Posts</h1>
   <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2015/12/02/how-to-write-data-into-parquet/">How to Write Data into Parquet</a>
+      </li>
     
       <li class="post">
         <a href="/blog/2015/11/13/running-spark-shell-in-browser-with-apache-mesos-and-marathon/">Running spark-shell in browser with Apache Mesos and Marathon</a>
