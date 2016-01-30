@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd" xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>http://blog.antlypls.com/blog/2016/01/30/processing-json-data-with-sparksql/</loc>
+    <lastmod>2016-01-30T10:08:44+01:00</lastmod>
+  </url>
+  <url>
     <loc>http://blog.antlypls.com/blog/2015/12/02/how-to-write-data-into-parquet/</loc>
     <lastmod>2015-12-02T00:46:12+01:00</lastmod>
   </url>
@@ -41,5 +45,8 @@
   </url>
   <url>
     <loc>http://blog.antlypls.com/blog/categories/parquet/</loc>
+  </url>
+  <url>
+    <loc>http://blog.antlypls.com/blog/categories/json/</loc>
   </url>
 </urlset>

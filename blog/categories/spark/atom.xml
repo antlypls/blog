@@ -4,7 +4,7 @@
   <title><![CDATA[Category: spark | Thoughts Resampled]]></title>
   <link href="http://blog.antlypls.com/blog/categories/spark/atom.xml" rel="self"/>
   <link href="http://blog.antlypls.com/"/>
-  <updated>2015-12-30T09:28:29+01:00</updated>
+  <updated>2016-01-30T10:21:20+01:00</updated>
   <id>http://blog.antlypls.com/</id>
   <author>
     <name><![CDATA[Anatoliy Plastinin]]></name>
@@ -12,6 +12,247 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Processing JSON data with Spark&nbsp;SQL]]></title>
+    <link href="http://blog.antlypls.com/blog/2016/01/30/processing-json-data-with-sparksql/"/>
+    <updated>2016-01-30T10:08:44+01:00</updated>
+    <id>http://blog.antlypls.com/blog/2016/01/30/processing-json-data-with-sparksql</id>
+    <content type="html"><![CDATA[<p><a href="http://spark.apache.org/docs/latest/sql-programming-guide.html">Spark SQL</a>
+provides built-in support for variety of data formats,
+including <a href="https://en.wikipedia.org/wiki/JSON">JSON</a>.
+Each new release of Spark contains enhancements that make use of DataFrames API with JSON data more convenient.
+Same time, there are a number of tricky aspects that might lead to unexpected results.
+In this post I&rsquo;ll show how to use Spark SQL to deal with JSON.</p>
+
+<!--more-->
+
+
+<blockquote><p>Examples below show functionality for Spark 1.6
+which is latest version at the moment of writing.</p></blockquote>
+
+<p>JSON is very simple, human-readable and easy to use format.
+But its simplicity can lead to problems, since it&rsquo;s schema-less.
+Especially when you have to deal with unreliable third-party data sources,
+such services may return crazy JSON responses containing integer numbers as strings,
+or encode nulls different ways like <code>null</code>, <code>""</code> or even <code>"null"</code>.</p>
+
+<h2>Loading data</h2>
+
+<p>You can read and parse JSON to DataFrame directly from file:
+<code>scala
+val df = sqlContext.read.json("s3a://some-bucket/some-file.json")
+</code>
+Please note Spark expects each line to be a separate JSON object,
+so it will fail if you&rsquo;ll try to load a pretty formatted JSON file.</p>
+
+<p>Also you read JSON data from <code>RDD[String]</code> object like:</p>
+
+<pre><code class="scala">// construct RDD[Sting]
+val events = sc.parallelize(
+  """{"action":"create","timestamp":"2016-01-07T00:01:17Z"}""" :: Nil)
+
+// read it
+val df = sqlContext.read.json(events)
+</code></pre>
+
+<p>The latter option is also useful for reading JSON messages
+from Kafka with Spark Streaming.</p>
+
+<p>If you are just playing around with DataFrames
+you can use <code>show</code> method to print DataFrame to console.</p>
+
+<pre><code>scala&gt; df.show
++------+--------------------+
+|action|           timestamp|
++------+--------------------+
+|create|2016-01-07T00:01:17Z|
++------+--------------------+
+</code></pre>
+
+<h2>Schema inference and explicit definition</h2>
+
+<p>Simply running <code>sqlContext.read.json(events)</code> will not load data,
+since DataFrames are evaluated lazily.
+But it will trigger schema inference,
+spark will go over RDD to determine schema that fits the data.</p>
+
+<p>In the shell you can print schema using <code>printSchema</code> method:</p>
+
+<pre><code>scala&gt; df.printSchema
+root
+ |-- action: string (nullable = true)
+ |-- timestamp: string (nullable = true)
+</code></pre>
+
+<p>As you saw in the last example Spark inferred type of both columns as strings.</p>
+
+<p>It is possible to provide schema explicitly to avoid that extra scan:</p>
+
+<pre><code class="scala">val schema = (new StructType).add("action", StringType).add("timestamp", TimestampType)
+
+val df = sqlContext.read.schema(schema).json(events)
+
+df.show
+
+// +------+--------------------+
+// |action|           timestamp|
+// +------+--------------------+
+// |create|2016-01-07 01:01:...|
+// +------+--------------------+
+</code></pre>
+
+<p>As you might have noticed type of <code>timestamp</code> column is explicitly forced to be a <code>TimestampType</code>.
+It&rsquo;s important to understand that this type coercion is performed in JSON parser,
+and it has nothing to do with DataFrame&rsquo;s type casting functionality.
+Type coercions implemented in parser are somewhat limited and in some cases unobvious.
+Following example demonstrates it:</p>
+
+<pre><code class="scala">val events = sc.parallelize(
+  """{"action":"create","timestamp":1452121277}""" ::
+  """{"action":"create","timestamp":"1452121277"}""" ::
+  """{"action":"create","timestamp":""}""" ::
+  """{"action":"create","timestamp":null}""" ::
+  """{"action":"create","timestamp":"null"}""" ::
+  Nil
+)
+
+val schema = (new StructType).add("action", StringType).add("timestamp", LongType)
+
+sqlContext.read.schema(schema).json(events).show
+
+// +------+----------+
+// |action| timestamp|
+// +------+----------+
+// |create|1452121277|
+// |  null|      null|
+// |create|      null|
+// |create|      null|
+// |  null|      null|
+// +------+----------+
+</code></pre>
+
+<p>Frankly that is not a result that one can expect.
+Look at 2nd row in the result set, as you may see, there is no conversion from string to integer.
+But here is one more big problem, if you try to set type for which parser doesn&rsquo;t has conversion,
+it won&rsquo;t simply discard value and set that field to <code>null</code>,
+instead it will consider entire row as incorrect, and set all fields to <code>null</code>s.
+The good news is that you can read all values as strings.</p>
+
+<h2>Type casting</h2>
+
+<p>If you can&rsquo;t be sure in a quality of you data,
+the best option is to explicitly provide schema forcing <code>StringType</code> for all untrusted fields
+to avoid extra RDD scan, and then cast those columns to desired type:</p>
+
+<pre><code class="scala">val schema = (new StructType).add("action", StringType).add("timestamp", StringType)
+
+sqlContext.read.schema(schema).json(events).select($"action", $"timestamp".cast(LongType)).show
+
+// +------+----------+
+// |action| timestamp|
+// +------+----------+
+// |create|1452121277|
+// |create|1452121277|
+// |create|      null|
+// |create|      null|
+// |create|      null|
+// +------+----------+
+</code></pre>
+
+<p>Now that&rsquo;s more like a sane result.</p>
+
+<p>Spark&rsquo;s catalyst optimizer has a very powerful type casting functionality,
+let&rsquo;s see how we can parse UNIX timestamps from the previous example:</p>
+
+<pre><code>val schema = (new StructType).add("action", StringType).add("timestamp", StringType)
+
+sqlContext.read.schema(schema).json(events)
+  .select($"action", $"timestamp".cast(LongType).cast(TimestampType))
+  .show
+
+// +------+--------------------+
+// |action|           timestamp|
+// +------+--------------------+
+// |create|2016-01-07 00:01:...|
+// |create|2016-01-07 00:01:...|
+// |create|                null|
+// |create|                null|
+// |create|                null|
+// +------+--------------------+
+</code></pre>
+
+<p>Spark allows to parse integer timestamps as a timestamp type,
+but right now (as of spark 1.6) there exists a difference in behavior:
+parser treats integer value as a number of milliseconds,
+but catalysts cast behavior is treat as a number of seconds.
+This behavior is about to change in Spark&nbsp;2.0
+(see <a href="https://issues.apache.org/jira/browse/SPARK-12744">SPARK-12744</a>).</p>
+
+<h2>Handling nested objects</h2>
+
+<p>Often in API responses useful data might be wrapped in a several layers of nested objects:</p>
+
+<pre><code class="json">{
+  "payload": {
+    "event": {
+      "action": "create",
+      "timestamp": 1452121277
+    }
+  }
+}
+</code></pre>
+
+<p>Star (<code>*</code>) expansion makes it easier to unnest with such objects, for example:</p>
+
+<pre><code class="scala">val vals = sc.parallelize(
+  """{"payload":{"event":{"action":"create","timestamp":1452121277}}}""" ::
+  Nil
+)
+
+val schema = (new StructType)
+  .add("payload", (new StructType)
+    .add("event", (new StructType)
+      .add("action", StringType)
+      .add("timestamp", LongType)
+    )
+  )
+
+sqlContext.read.schema(schema).json(vals).select($"payload.event.*").show
+
+// +------+----------+
+// |action| timestamp|
+// +------+----------+
+// |create|1452121277|
+// +------+----------+
+</code></pre>
+
+<p>If you need more control over column names,
+you can always use <code>as</code> method to rename columns, e.g.:</p>
+
+<pre><code>sqlContext.read.schema(schema).json(vals)
+  .select(
+    $"payload.event.action".as("event_action"),
+    $"payload.event.timestamp".as("event_timestamp")
+  ).show
+
+// +------------+---------------+
+// |event_action|event_timestamp|
+// +------------+---------------+
+// |      create|     1452121277|
+// +------------+---------------+
+</code></pre>
+
+<h2>Wrapping up</h2>
+
+<p>That was quite a few tricks and things to keep in mind when dealing with JSON data.
+In conclusion I&rsquo;d like to say obvious thing — do not disregard unit tests
+for data input and data transformations,
+especially when you have no control over data source.
+Also it will make you more confident doing upgrade to newer version of Spark,
+since parsing and casting behavior might change in the future.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Running spark-shell in browser with Apache Mesos and Marathon]]></title>
