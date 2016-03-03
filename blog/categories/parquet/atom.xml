@@ -4,7 +4,7 @@
   <title><![CDATA[Category: parquet | Thoughts Resampled]]></title>
   <link href="http://blog.antlypls.com/blog/categories/parquet/atom.xml" rel="self"/>
   <link href="http://blog.antlypls.com/"/>
-  <updated>2016-02-07T22:13:07+01:00</updated>
+  <updated>2016-03-03T09:03:07+01:00</updated>
   <id>http://blog.antlypls.com/</id>
   <author>
     <name><![CDATA[Anatoliy Plastinin]]></name>
@@ -14,105 +14,164 @@
 
   
   <entry>
+    <title type="html"><![CDATA[Spark SQL and Parquet files]]></title>
+    <link href="http://blog.antlypls.com/blog/2016/02/29/spark-sql-and-parquet-files/"/>
+    <updated>2016-02-29T23:32:30+01:00</updated>
+    <id>http://blog.antlypls.com/blog/2016/02/29/spark-sql-and-parquet-files</id>
+    <content type="html"><![CDATA[This is a short note on how to deal with Parquet files with Spark.
+
+<!--more-->
+
+[Previously](/blog/2015/12/02/how-to-write-data-into-parquet/) I showed how to write
+parquet files using just parquet library.
+
+But Spark SQL has
+[built-in support](http://spark.apache.org/docs/latest/sql-programming-guide.html#parquet-files)
+for Parquet data format, which makes processing data in parquet files easy using simple DataFrames API.
+
+Reading DataFrame from parquet is simple as:
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">val</span> <span class="n">df</span> <span class="k">=</span> <span class="n">sqlContext</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">parquet</span><span class="o">(</span><span class="s">&quot;s3a://bucket/data/&quot;</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+And writing data to parquet files:
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="n">df</span><span class="o">.</span><span class="n">write</span><span class="o">.</span><span class="n">parquet</span><span class="o">(</span><span class="s">&quot;s3a://bucket/another_data/&quot;</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+More advanced topics like partitioning and schema merging will be covered later.
+]]></content>
+  </entry>
+  
+  <entry>
     <title type="html"><![CDATA[How to Write Data into Parquet]]></title>
     <link href="http://blog.antlypls.com/blog/2015/12/02/how-to-write-data-into-parquet/"/>
     <updated>2015-12-02T00:46:12+01:00</updated>
     <id>http://blog.antlypls.com/blog/2015/12/02/how-to-write-data-into-parquet</id>
-    <content type="html"><![CDATA[<p>Column oriented data stores have proven its success for many analytical purposes.
-Such success was shown by <a href="https://en.wikipedia.org/wiki/RCFile">RCFile</a>
-and <a href="https://orc.apache.org/">Apache ORC</a> formats
-and their wide adoption in many distributed data processing tools in Hadoop ecosystem.</p>
+    <content type="html"><![CDATA[Column oriented data stores have proven its success for many analytical purposes.
+Such success was shown by [RCFile](https://en.wikipedia.org/wiki/RCFile)
+and [Apache ORC](https://orc.apache.org/) formats
+and their wide adoption in many distributed data processing tools in Hadoop ecosystem.
 
-<p>Another columnar format that has gained popularity lately is
-<a href="https://parquet.apache.org/">Apache Parquet</a>,
+Another columnar format that has gained popularity lately is
+[Apache Parquet](https://parquet.apache.org/),
 which is now top level Apache project.
 It is supported by many data processing tools including
-<a href="http://spark.apache.org/docs/latest/sql-programming-guide.html#parquet-files">Spark</a> and
-<a href="https://prestodb.io/overview.html">Presto</a> provide support for parquet format.</p>
+[Spark](http://spark.apache.org/docs/latest/sql-programming-guide.html#parquet-files) and
+[Presto](https://prestodb.io/overview.html) provide support for parquet format.
 
-<p>Recently I&rsquo;ve been experimenting with storing data in the parquet format,
+Recently I've been experimenting with storing data in the parquet format,
 so I thought it might be a good idea to share a few examples.
-This post covers the basics of how to write data into parquet.</p>
+This post covers the basics of how to write data into parquet.
 
 <!--more-->
 
+## Non-hadoop writer
 
-<h2>Non-hadoop writer</h2>
-
-<p>I’m going to show how to implement simple non-hadoop writer.
+I’m going to show how to implement simple non-hadoop writer.
 It will be enough to start experimenting with parquet and its options.
 It also might be useful enough in cases when you have to deal with serial data import
-and when there is no need for big guns like Spark.</p>
+and when there is no need for big guns like Spark.
 
-<p>To write data in parquet we need to define a schema.
+To write data in parquet we need to define a schema.
 And fortunately parquet provides support for popular data serialization libraries,
-like <a href="https://avro.apache.org/">avro</a>,
-<a href="https://developers.google.com/protocol-buffers/">protocol buffers</a>
-and <a href="https://thrift.apache.org/">thrift</a>.
-For demo purposes I simply use protobuf.</p>
+like [avro](https://avro.apache.org/),
+[protocol buffers](https://developers.google.com/protocol-buffers/)
+and [thrift](https://thrift.apache.org/).
+For demo purposes I simply use protobuf.
 
-<p>Please, do not be confused, protobuf is a serialization library,
-but here it&rsquo;s used only to define record with schema.
-So we can use <code>ProtoParquetWriter</code> that comes with parquet out-of-the-box.
-Parquet doesn’t use serialization functionality of any of those libraries, it has its own binary format.</p>
+Please, do not be confused, protobuf is a serialization library,
+but here it's used only to define record with schema.
+So we can use `ProtoParquetWriter` that comes with parquet out-of-the-box.
+Parquet doesn’t use serialization functionality of any of those libraries, it has its own binary format.
 
-<p>Frankly, in most cases protobuf is not the best choice for defining record schema, since it doesn’t has many types that parquet provides, like <code>DECIMAL</code> or <code>INT96</code> for timestamps.</p>
+Frankly, in most cases protobuf is not the best choice for defining record schema, since it doesn’t has many types that parquet provides, like `DECIMAL` or `INT96` for timestamps.
 
-<p>If you are interested in low level details of how to write custom data classes checkout following
-<a href="https://github.com/apache/parquet-mr/tree/apache-parquet-1.8.1/parquet-column/src/main/java/org/apache/parquet/example">examples</a>
-and <a href="https://github.com/apache/parquet-mr/tree/apache-parquet-1.8.1/parquet-benchmarks/src/main/java/org/apache/parquet/benchmarks">benchmarks</a>
-from parquet repository.</p>
+If you are interested in low level details of how to write custom data classes checkout following
+[examples](https://github.com/apache/parquet-mr/tree/apache-parquet-1.8.1/parquet-column/src/main/java/org/apache/parquet/example)
+and [benchmarks](https://github.com/apache/parquet-mr/tree/apache-parquet-1.8.1/parquet-benchmarks/src/main/java/org/apache/parquet/benchmarks)
+from parquet repository.
 
-<p>Suppose we have an <code>Event</code> class generated from protobuf definition, so we can write collection of events like this</p>
+Suppose we have an `Event` class generated from protobuf definition, so we can write collection of events like this
 
-<pre><code class="scala">val compressionCodecName = CompressionCodecName.GZIP
-val blockSize = 256 * 1024 * 1024
-val pageSize = 1 * 1024 * 1024
-val outputPath = new Path("data.parquet")
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">val</span> <span class="n">compressionCodecName</span> <span class="k">=</span> <span class="nc">CompressionCodecName</span><span class="o">.</span><span class="nc">GZIP</span>
+</span><span class='line'><span class="k">val</span> <span class="n">blockSize</span> <span class="k">=</span> <span class="mi">256</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span>
+</span><span class='line'><span class="k">val</span> <span class="n">pageSize</span> <span class="k">=</span> <span class="mi">1</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span>
+</span><span class='line'><span class="k">val</span> <span class="n">outputPath</span> <span class="k">=</span> <span class="k">new</span> <span class="nc">Path</span><span class="o">(</span><span class="s">&quot;data.parquet&quot;</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">val</span> <span class="n">parquetWriter</span> <span class="k">=</span> <span class="k">new</span> <span class="nc">ProtoParquetWriter</span><span class="o">[</span><span class="kt">Event</span><span class="o">](</span><span class="n">outputPath</span><span class="o">,</span> <span class="n">classOf</span><span class="o">[</span><span class="kt">Event</span><span class="o">],</span> <span class="n">compressionCodecName</span><span class="o">,</span> <span class="n">blockSize</span><span class="o">,</span> <span class="n">pageSize</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">events</span><span class="o">.</span><span class="n">foreach</span><span class="o">(</span><span class="n">parquetWriter</span><span class="o">.</span><span class="n">write</span><span class="o">)</span>
+</span><span class='line'><span class="n">parquetWriter</span><span class="o">.</span><span class="n">close</span><span class="o">()</span>
+</span></code></pre></td></tr></table></div></figure>
 
-val parquetWriter = new ProtoParquetWriter[Event](outputPath, classOf[Event], compressionCodecName, blockSize, pageSize)
-
-events.foreach(parquetWriter.write)
-parquetWriter.close()
-</code></pre>
-
-<p>Page size is an amount of data buffered before it’s written as page.
+Page size is an amount of data buffered before it’s written as page.
 This setting might affect compression performance.
 Block (row group) size is an amount of data buffered in memory before it is written to disc.
 For more details about what pages and row groups are,
-please see <a href="https://github.com/apache/parquet-format/blob/master/README.md">parquet format documentation</a>.</p>
+please see [parquet format documentation](https://github.com/apache/parquet-format/blob/master/README.md).
 
-<h2>Writing parquet files to S3</h2>
+## Writing parquet files to S3
 
-<p>Now let’s see how to write parquet files directly to <a href="https://aws.amazon.com/s3/">Amazon S3</a>.
-This can be done using <a href="https://wiki.apache.org/hadoop/AmazonS3">Hadoop S3 file systems</a>.
+Now let’s see how to write parquet files directly to [Amazon S3](https://aws.amazon.com/s3/).
+This can be done using [Hadoop S3 file systems](https://wiki.apache.org/hadoop/AmazonS3).
 More precisely, here we’ll use S3A file system.
-It will require a few code changes, we’ll use <code>ParquetWriter</code> class to be able to pass <code>conf</code> object with AWS settings.</p>
+It will require a few code changes, we’ll use `ParquetWriter` class to be able to pass `conf` object with AWS settings.
 
-<pre><code class="scala">val compressionCodecName = CompressionCodecName.GZIP
-val blockSize = 256 * 1024 * 1024
-val pageSize = 1 * 1024 * 1024
-val outputPath = new Path("s3a://bucket/data.parquet")
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">val</span> <span class="n">compressionCodecName</span> <span class="k">=</span> <span class="nc">CompressionCodecName</span><span class="o">.</span><span class="nc">GZIP</span>
+</span><span class='line'><span class="k">val</span> <span class="n">blockSize</span> <span class="k">=</span> <span class="mi">256</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span>
+</span><span class='line'><span class="k">val</span> <span class="n">pageSize</span> <span class="k">=</span> <span class="mi">1</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span>
+</span><span class='line'><span class="k">val</span> <span class="n">outputPath</span> <span class="k">=</span> <span class="k">new</span> <span class="nc">Path</span><span class="o">(</span><span class="s">&quot;s3a://bucket/data.parquet&quot;</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">val</span> <span class="n">accessKey</span> <span class="k">=</span> <span class="s">&quot;aws_access_key&quot;</span>
+</span><span class='line'><span class="k">val</span> <span class="n">secretKey</span> <span class="k">=</span> <span class="s">&quot;aws_secret_key&quot;</span>
+</span><span class='line'><span class="k">val</span> <span class="n">conf</span> <span class="k">=</span> <span class="k">new</span> <span class="nc">Configuration</span>
+</span><span class='line'><span class="n">conf</span><span class="o">.</span><span class="n">set</span><span class="o">(</span><span class="s">&quot;fs.s3a.access.key&quot;</span><span class="o">,</span> <span class="n">accessKey</span><span class="o">)</span>
+</span><span class='line'><span class="n">conf</span><span class="o">.</span><span class="n">set</span><span class="o">(</span><span class="s">&quot;fs.s3a.secret.key&quot;</span><span class="o">,</span> <span class="n">secretKey</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">val</span> <span class="n">writeSupport</span> <span class="k">=</span> <span class="k">new</span> <span class="nc">ProtoWriteSupport</span><span class="o">[</span><span class="kt">Event</span><span class="o">](</span><span class="n">classOf</span><span class="o">[</span><span class="kt">Event</span><span class="o">])</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">val</span> <span class="n">parquetWriter</span> <span class="k">=</span> <span class="k">new</span> <span class="nc">ParquetWriter</span><span class="o">[</span><span class="kt">Event</span><span class="o">](</span><span class="n">outputPath</span><span class="o">,</span>
+</span><span class='line'>  <span class="n">writeSupport</span><span class="o">,</span> <span class="n">compressionCodecName</span><span class="o">,</span> <span class="n">blockSize</span><span class="o">,</span> <span class="n">pageSize</span><span class="o">,</span> <span class="n">pageSize</span><span class="o">,</span>
+</span><span class='line'>  <span class="nc">ParquetWriter</span><span class="o">.</span><span class="nc">DEFAULT_IS_DICTIONARY_ENABLED</span><span class="o">,</span> <span class="nc">ParquetWriter</span><span class="o">.</span><span class="nc">DEFAULT_IS_VALIDATING_ENABLED</span><span class="o">,</span>
+</span><span class='line'>  <span class="nc">ParquetWriter</span><span class="o">.</span><span class="nc">DEFAULT_WRITER_VERSION</span><span class="o">,</span>
+</span><span class='line'>  <span class="n">conf</span>
+</span><span class='line'><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
 
-val accessKey = "aws_access_key"
-val secretKey = "aws_secret_key"
-val conf = new Configuration
-conf.set("fs.s3a.access.key", accessKey)
-conf.set("fs.s3a.secret.key", secretKey)
-
-val writeSupport = new ProtoWriteSupport[Event](classOf[Event])
-
-val parquetWriter = new ParquetWriter[Event](outputPath,
-  writeSupport, compressionCodecName, blockSize, pageSize, pageSize,
-  ParquetWriter.DEFAULT_IS_DICTIONARY_ENABLED, ParquetWriter.DEFAULT_IS_VALIDATING_ENABLED,
-  ParquetWriter.DEFAULT_WRITER_VERSION,
-  conf
-)
-</code></pre>
-
-<p>Now you should have enough information to start experimenting with parquet,
+Now you should have enough information to start experimenting with parquet,
 you can find examples from this post as a single project in
-<a href="https://github.com/antlypls/parquet-demo">this repository</a>.</p>
+[this repository](https://github.com/antlypls/parquet-demo).
 ]]></content>
   </entry>
   

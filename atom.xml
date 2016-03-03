@@ -4,7 +4,7 @@
   <title><![CDATA[Thoughts Resampled]]></title>
   <link href="http://blog.antlypls.com/atom.xml" rel="self"/>
   <link href="http://blog.antlypls.com/"/>
-  <updated>2016-02-07T22:13:07+01:00</updated>
+  <updated>2016-03-03T09:03:07+01:00</updated>
   <id>http://blog.antlypls.com/</id>
   <author>
     <name><![CDATA[Anatoliy Plastinin]]></name>
@@ -12,6 +12,41 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Spark SQL and Parquet files]]></title>
+    <link href="http://blog.antlypls.com/blog/2016/02/29/spark-sql-and-parquet-files/"/>
+    <updated>2016-02-29T23:32:30+01:00</updated>
+    <id>http://blog.antlypls.com/blog/2016/02/29/spark-sql-and-parquet-files</id>
+    <content type="html"><![CDATA[<p>This is a short note on how to deal with Parquet files with Spark.</p>
+
+<!--more-->
+
+
+<p><a href="http://blog.antlypls.com/blog/2015/12/02/how-to-write-data-into-parquet/">Previously</a> I showed how to write
+parquet files using just parquet library.</p>
+
+<p>But Spark SQL has
+<a href="http://spark.apache.org/docs/latest/sql-programming-guide.html#parquet-files">built-in support</a>
+for Parquet data format, which makes processing data in parquet files easy using simple DataFrames API.</p>
+
+<p>Reading DataFrame from parquet is simple as:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">val</span> <span class="n">df</span> <span class="k">=</span> <span class="n">sqlContext</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">parquet</span><span class="o">(</span><span class="s">&quot;s3a://bucket/data/&quot;</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>And writing data to parquet files:</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="n">df</span><span class="o">.</span><span class="n">write</span><span class="o">.</span><span class="n">parquet</span><span class="o">(</span><span class="s">&quot;s3a://bucket/another_data/&quot;</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>More advanced topics like partitioning and schema merging will be covered later.</p>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Processing JSON data with Spark&nbsp;SQL]]></title>
