@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd" xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>http://blog.antlypls.com/blog/2016/04/29/when-data-driven-app-smells-bad/</loc>
+    <lastmod>2016-04-29T00:26:44+02:00</lastmod>
+  </url>
+  <url>
     <loc>http://blog.antlypls.com/blog/2016/02/29/spark-sql-and-parquet-files/</loc>
     <lastmod>2016-02-29T23:32:30+01:00</lastmod>
   </url>
@@ -52,5 +56,14 @@
   </url>
   <url>
     <loc>http://blog.antlypls.com/blog/categories/json/</loc>
+  </url>
+  <url>
+    <loc>http://blog.antlypls.com/blog/categories/anti-patterns/</loc>
+  </url>
+  <url>
+    <loc>http://blog.antlypls.com/blog/categories/big-data/</loc>
+  </url>
+  <url>
+    <loc>http://blog.antlypls.com/blog/categories/architecture/</loc>
   </url>
 </urlset>

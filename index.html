@@ -80,6 +80,52 @@
       
   <header>
     
+      <h1 class="entry-title"><a href="/blog/2016/04/29/when-data-driven-app-smells-bad/">When Data Driven App Smells Bad</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-04-29T00:26:44+02:00'><span class='date'><span class='date-month'>Apr</span> <span class='date-day'>29</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>12:26 am</span></time>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>Recently I have been involved in reviewing one &ldquo;<a href="https://twitter.com/wtrsld/status/424272437929205760">Big Data</a>&rdquo; project.
+I can&rsquo;t say that volume of data processed by that app was that big, but
+the project was treated as real big data project by people who developed it.
+They used <a href="http://hadoop.apache.org/">Hadoop</a> just because that is what you use for big data.
+And even project&rsquo;s codename had phrase &ldquo;Big Data&rdquo; in it.</p>
+
+<p>In short, that project was a data analytics application with ETL, data warehouse and reporting.
+A variety of technologies were used to build it: Java, Hadoop, Python, <a href="http://pandas.pydata.org/">Pandas</a>, R
+with UI implemented in PHP and <a href="http://shiny.rstudio.com/">Shiny Apps</a> embedded as IFRAMEs.
+But honestly that project was a real mess.
+And everything that could go wrong actually went wrong.
+Yet it is a good example of common problems and anti-patterns that might happen with data analytics apps.
+So I&rsquo;d like to talk about major ones.</p>
+
+</div>
+  
+  
+    <footer>
+      <a rel="full-article" href="/blog/2016/04/29/when-data-driven-app-smells-bad/">Read on &rarr;</a>
+    </footer>
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
       <h1 class="entry-title"><a href="/blog/2016/02/29/spark-sql-and-parquet-files/">Spark SQL and Parquet files</a></h1>
     
     
@@ -289,6 +335,10 @@ this post provides you with easy steps on how to get development setup with Spar
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2016/04/29/when-data-driven-app-smells-bad/">When Data Driven App Smells Bad</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2016/02/29/spark-sql-and-parquet-files/">Spark SQL and Parquet files</a>
       </li>
     
@@ -302,10 +352,6 @@ this post provides you with easy steps on how to get development setup with Spar
     
       <li class="post">
         <a href="/blog/2015/11/13/running-spark-shell-in-browser-with-apache-mesos-and-marathon/">Running spark-shell in browser with Apache Mesos and Marathon</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2015/10/05/getting-started-with-spark-streaming-using-docker/">Getting started with Spark Streaming using Docker</a>
       </li>
     
   </ul>
