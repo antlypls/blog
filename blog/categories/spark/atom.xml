@@ -4,7 +4,7 @@
   <title><![CDATA[Category: spark | Thoughts Resampled]]></title>
   <link href="http://blog.antlypls.com/blog/categories/spark/atom.xml" rel="self"/>
   <link href="http://blog.antlypls.com/"/>
-  <updated>2016-04-30T20:20:25+02:00</updated>
+  <updated>2016-11-10T00:25:21+01:00</updated>
   <id>http://blog.antlypls.com/</id>
   <author>
     <name><![CDATA[Anatoliy Plastinin]]></name>
@@ -12,6 +12,129 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[spark-shell without Spark]]></title>
+    <link href="http://blog.antlypls.com/blog/2016/11/10/spark-shell-without-spark/"/>
+    <updated>2016-11-10T00:20:57+01:00</updated>
+    <id>http://blog.antlypls.com/blog/2016/11/10/spark-shell-without-spark</id>
+    <content type="html"><![CDATA[[spark-shell] is an interactive shell that comes with spark's distribution.
+Shell is useful for learning api, quick experiments, prototyping and etc.
+But to do that you don't need to have cluster or even have spark distribution installed.
+
+[spark-shell]: http://spark.apache.org/docs/latest/quick-start.html#interactive-analysis-with-the-spark-shell
+
+<!--more-->
+
+What you need to have is a basic knowledge of [scala] and [sbt]. Just create `build.sbt` file with following content:
+
+<figure class='code'><figcaption><span>build.sbt</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="n">scalaVersion</span> <span class="o">:=</span> <span class="s">&quot;2.11.8&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">val</span> <span class="n">sparkVersion</span> <span class="k">=</span> <span class="s">&quot;2.0.1&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">libraryDependencies</span> <span class="o">++=</span> <span class="nc">Seq</span><span class="o">(</span>
+</span><span class='line'>  <span class="s">&quot;org.apache.spark&quot;</span> <span class="o">%%</span> <span class="s">&quot;spark-core&quot;</span> <span class="o">%</span> <span class="n">sparkVersion</span><span class="o">,</span>
+</span><span class='line'>  <span class="s">&quot;org.apache.spark&quot;</span> <span class="o">%%</span> <span class="s">&quot;spark-sql&quot;</span> <span class="o">%</span> <span class="n">sparkVersion</span>
+</span><span class='line'><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+It defines two spark components as dependencies: `core` and `sql`,
+we will use `sql` later for testing.
+You can import other spark libraries that you need like MLLib, Streaming and etc.
+
+And now you're all set to start experimenting with Spark.
+
+First, run
+
+    $ sbt console
+
+This command starts the Scala interpreter REPL with specified dependencies on the classpath.
+So you can use Spark classes in the REPL.
+
+Let's start with setting up a `SparkSession`.
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">import</span> <span class="nn">org.apache.spark.sql.SparkSession</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">val</span> <span class="n">spark</span> <span class="k">=</span> <span class="nc">SparkSession</span><span class="o">.</span>
+</span><span class='line'>  <span class="n">builder</span><span class="o">().</span>
+</span><span class='line'>  <span class="n">appName</span><span class="o">(</span><span class="s">&quot;Console Demo&quot;</span><span class="o">).</span>
+</span><span class='line'>  <span class="n">master</span><span class="o">(</span><span class="s">&quot;local[*]&quot;</span><span class="o">).</span>
+</span><span class='line'>  <span class="n">getOrCreate</span><span class="o">()</span>
+</span></code></pre></td></tr></table></div></figure>
+
+`SparkSession` is a new class in Spark 2.0 that gives you unified access to Spark SQL functionality.
+
+The trick here is to set master URL to "local" to run Spark locally,
+`local[*]` means that spark will use as many worker threads as number of logical cores on your machine.
+
+And now you can run some spark code.
+
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">val</span> <span class="n">events</span> <span class="k">=</span> <span class="n">spark</span><span class="o">.</span><span class="n">sparkContext</span><span class="o">.</span><span class="n">parallelize</span><span class="o">(</span>
+</span><span class='line'>  <span class="s">&quot;&quot;&quot;{&quot;action&quot;:&quot;create&quot;,&quot;timestamp&quot;:&quot;2016-11-06T00:01:17Z&quot;}&quot;&quot;&quot;</span> <span class="o">::</span> <span class="nc">Nil</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">val</span> <span class="n">df</span> <span class="k">=</span> <span class="n">spark</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">json</span><span class="o">(</span><span class="n">events</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">df</span><span class="o">.</span><span class="n">show</span><span class="o">()</span>
+</span></code></pre></td></tr></table></div></figure>
+
+By default you should see tons of Spark logs in console, but in the end you will see the result:
+
+    +------+--------------------+
+    |action|           timestamp|
+    +------+--------------------+
+    |create|2016-01-07T00:01:17Z|
+    +------+--------------------+
+
+In case if you don't need SparkSQL functionality, you can create just `SparkContext` with local master.
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">import</span> <span class="nn">org.apache.spark.</span><span class="o">{</span><span class="nc">SparkContext</span><span class="o">,</span> <span class="nc">SparkConf</span><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">val</span> <span class="n">conf</span> <span class="k">=</span> <span class="k">new</span> <span class="nc">SparkConf</span><span class="o">().</span>
+</span><span class='line'>  <span class="n">setAppName</span><span class="o">(</span><span class="s">&quot;Console Demo&quot;</span><span class="o">).</span>
+</span><span class='line'>  <span class="n">setMaster</span><span class="o">(</span><span class="s">&quot;local[*]&quot;</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">val</span> <span class="n">sc</span> <span class="k">=</span> <span class="k">new</span> <span class="nc">SparkContext</span><span class="o">(</span><span class="n">conf</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+Some spark features might also require setting additional spark options, but it depends on a feature.
+
+And that's all what you need to do to run spark locally within spark console.
+
+Have fun playing with spark in console!
+
+[scala]: http://www.scala-lang.org/
+[sbt]: http://www.scala-sbt.org/
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Spark SQL and Parquet files]]></title>

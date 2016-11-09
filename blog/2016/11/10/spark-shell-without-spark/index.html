@@ -1,0 +1,337 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>spark-shell without Spark - Thoughts Resampled</title>
+  <meta name="author" content="Anatoliy Plastinin">
+
+  
+  <meta name="description" content="Small trick how to start playing with Spark APIs without having spark distribution installed">
+  
+
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:site" content="@antlypls">
+  <meta name="twitter:title" content="spark-shell without Spark - Anatoliy Plastinin's Blog">
+  <meta name="twitter:url" content="http://blog.antlypls.com/blog/2016/11/10/spark-shell-without-spark/">
+  <meta name="twitter:description" content="Small trick how to start playing with Spark APIs without having spark distribution installed">
+
+  <link rel="canonical" href="http://blog.antlypls.com/blog/2016/11/10/spark-shell-without-spark/">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <link href="/atom.xml" rel="alternate" title="Thoughts Resampled" type="application/atom+xml">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+  <script>!window.jQuery && document.write(unescape('%3Cscript src="/javascripts/libs/jquery.min.js"%3E%3C/script%3E'))</script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="//fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="//fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+  
+  <script type="text/javascript">
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-47001001-2', 'auto');
+    ga('send', 'pageview');
+  </script>
+
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Thoughts Resampled</a></h1>
+  
+    <h2>Anatoliy Plastinin's Blog</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+  <li><a href="http://antlypls.com">About</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">spark-shell without Spark</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+<time class='entry-date' datetime='2016-11-10T00:20:57+01:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>10</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>12:20 am</span></time>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p><a href="http://spark.apache.org/docs/latest/quick-start.html#interactive-analysis-with-the-spark-shell">spark-shell</a> is an interactive shell that comes with spark&rsquo;s distribution.
+Shell is useful for learning api, quick experiments, prototyping and etc.
+But to do that you don&rsquo;t need to have cluster or even have spark distribution installed.</p>
+
+<!--more-->
+
+
+<p>What you need to have is a basic knowledge of <a href="http://www.scala-lang.org/">scala</a> and <a href="http://www.scala-sbt.org/">sbt</a>. Just create <code>build.sbt</code> file with following content:</p>
+
+<figure class='code'><figcaption><span>build.sbt</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="n">scalaVersion</span> <span class="o">:=</span> <span class="s">&quot;2.11.8&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">val</span> <span class="n">sparkVersion</span> <span class="k">=</span> <span class="s">&quot;2.0.1&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">libraryDependencies</span> <span class="o">++=</span> <span class="nc">Seq</span><span class="o">(</span>
+</span><span class='line'>  <span class="s">&quot;org.apache.spark&quot;</span> <span class="o">%%</span> <span class="s">&quot;spark-core&quot;</span> <span class="o">%</span> <span class="n">sparkVersion</span><span class="o">,</span>
+</span><span class='line'>  <span class="s">&quot;org.apache.spark&quot;</span> <span class="o">%%</span> <span class="s">&quot;spark-sql&quot;</span> <span class="o">%</span> <span class="n">sparkVersion</span>
+</span><span class='line'><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>It defines two spark components as dependencies: <code>core</code> and <code>sql</code>,
+we will use <code>sql</code> later for testing.
+You can import other spark libraries that you need like MLLib, Streaming and etc.</p>
+
+<p>And now you&rsquo;re all set to start experimenting with Spark.</p>
+
+<p>First, run</p>
+
+<pre><code>$ sbt console
+</code></pre>
+
+<p>This command starts the Scala interpreter REPL with specified dependencies on the classpath.
+So you can use Spark classes in the REPL.</p>
+
+<p>Let&rsquo;s start with setting up a <code>SparkSession</code>.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">import</span> <span class="nn">org.apache.spark.sql.SparkSession</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">val</span> <span class="n">spark</span> <span class="k">=</span> <span class="nc">SparkSession</span><span class="o">.</span>
+</span><span class='line'>  <span class="n">builder</span><span class="o">().</span>
+</span><span class='line'>  <span class="n">appName</span><span class="o">(</span><span class="s">&quot;Console Demo&quot;</span><span class="o">).</span>
+</span><span class='line'>  <span class="n">master</span><span class="o">(</span><span class="s">&quot;local[*]&quot;</span><span class="o">).</span>
+</span><span class='line'>  <span class="n">getOrCreate</span><span class="o">()</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p><code>SparkSession</code> is a new class in Spark 2.0 that gives you unified access to Spark SQL functionality.</p>
+
+<p>The trick here is to set master URL to &ldquo;local&rdquo; to run Spark locally,
+<code>local[*]</code> means that spark will use as many worker threads as number of logical cores on your machine.</p>
+
+<p>And now you can run some spark code.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">val</span> <span class="n">events</span> <span class="k">=</span> <span class="n">spark</span><span class="o">.</span><span class="n">sparkContext</span><span class="o">.</span><span class="n">parallelize</span><span class="o">(</span>
+</span><span class='line'>  <span class="s">&quot;&quot;&quot;{&quot;action&quot;:&quot;create&quot;,&quot;timestamp&quot;:&quot;2016-11-06T00:01:17Z&quot;}&quot;&quot;&quot;</span> <span class="o">::</span> <span class="nc">Nil</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">val</span> <span class="n">df</span> <span class="k">=</span> <span class="n">spark</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">json</span><span class="o">(</span><span class="n">events</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">df</span><span class="o">.</span><span class="n">show</span><span class="o">()</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>By default you should see tons of Spark logs in console, but in the end you will see the result:</p>
+
+<pre><code>+------+--------------------+
+|action|           timestamp|
++------+--------------------+
+|create|2016-01-07T00:01:17Z|
++------+--------------------+
+</code></pre>
+
+<p>In case if you don&rsquo;t need SparkSQL functionality, you can create just <code>SparkContext</code> with local master.</p>
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">import</span> <span class="nn">org.apache.spark.</span><span class="o">{</span><span class="nc">SparkContext</span><span class="o">,</span> <span class="nc">SparkConf</span><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">val</span> <span class="n">conf</span> <span class="k">=</span> <span class="k">new</span> <span class="nc">SparkConf</span><span class="o">().</span>
+</span><span class='line'>  <span class="n">setAppName</span><span class="o">(</span><span class="s">&quot;Console Demo&quot;</span><span class="o">).</span>
+</span><span class='line'>  <span class="n">setMaster</span><span class="o">(</span><span class="s">&quot;local[*]&quot;</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">val</span> <span class="n">sc</span> <span class="k">=</span> <span class="k">new</span> <span class="nc">SparkContext</span><span class="o">(</span><span class="n">conf</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Some spark features might also require setting additional spark options, but it depends on a feature.</p>
+
+<p>And that&rsquo;s all what you need to do to run spark locally within spark console.</p>
+
+<p>Have fun playing with spark in console!</p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Anatoliy Plastinin</span></span>
+
+      
+
+
+
+
+<time class='entry-date' datetime='2016-11-10T00:20:57+01:00'><span class='date'><span class='date-month'>Nov</span> <span class='date-day'>10</span><span class='date-suffix'>th</span>, <span class='date-year'>2016</span></span> <span class='time'>12:20 am</span></time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/scala/'>scala</a>, <a class='category' href='/blog/categories/spark/'>spark</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2016/04/29/when-data-driven-app-smells-bad/" title="Previous Post: When Data Driven App Smells Bad">&laquo; When Data Driven App Smells Bad</a>
+      
+      
+    </p>
+  </footer>
+</article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+  </section>
+
+</div>
+
+<aside class="sidebar">
+  
+    <section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2016/11/10/spark-shell-without-spark/">spark-shell without Spark</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2016/04/29/when-data-driven-app-smells-bad/">When Data Driven App Smells Bad</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2016/02/29/spark-sql-and-parquet-files/">Spark SQL and Parquet files</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2016/01/30/processing-json-data-with-sparksql/">Processing JSON data with Spark&nbsp;SQL</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2015/12/02/how-to-write-data-into-parquet/">How to Write Data into Parquet</a>
+      </li>
+    
+  </ul>
+</section>
+
+
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2016 - Anatoliy Plastinin -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+<script type="text/javascript">
+      var disqus_shortname = 'antlypls';
+      
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'http://blog.antlypls.com/blog/2016/11/10/spark-shell-without-spark/';
+        var disqus_url = 'http://blog.antlypls.com/blog/2016/11/10/spark-shell-without-spark/';
+        var disqus_script = 'embed.js';
+      
+    (function () {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = '//' + disqus_shortname + '.disqus.com/' + disqus_script;
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    }());
+</script>
+
+
+
+
+
+
+
+
+
+
+
+</body>
+</html>
