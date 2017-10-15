@@ -9,7 +9,7 @@
   <meta name="author" content="Anatoliy Plastinin">
 
   
-  <meta name="description" content="Step-by-step guide on how to get started with Spark Streaming and Kafka using Docker environemt">
+  <meta name="description" content="Step-by-step guide on how to get started with Spark Streaming and Kafka using Docker environment">
   
 
   <meta name="HandheldFriendly" content="True">
@@ -21,7 +21,7 @@
   <meta name="twitter:site" content="@antlypls">
   <meta name="twitter:title" content="Getting started with Spark Streaming using Docker - Anatoliy Plastinin's Blog">
   <meta name="twitter:url" content="http://blog.antlypls.com/blog/2015/10/05/getting-started-with-spark-streaming-using-docker/">
-  <meta name="twitter:description" content="Step-by-step guide on how to get started with Spark Streaming and Kafka using Docker environemt">
+  <meta name="twitter:description" content="Step-by-step guide on how to get started with Spark Streaming and Kafka using Docker environment">
 
   <link rel="canonical" href="http://blog.antlypls.com/blog/2015/10/05/getting-started-with-spark-streaming-using-docker/">
   <link href="/favicon.png" rel="icon">
@@ -115,7 +115,7 @@ Please refer to corresponding software documentation for instructions for your p
 from spark distribution as basis for our demo.
 That example shows how to use Spark&rsquo;s Direct Kafka Stream.
 You can easily use another
-<a href="https://github.com/apache/spark/blob/master/examples/src/main/scala/org/apache/spark/examples/streaming/KafkaWordCount.scala">example that uses Receiver-based Approach</a>
+<a href="https://github.com/apache/spark/blob/master/examples/src/main/scala/org/apache/spark/examples/streaming/KafkaWordCount.scala">example that uses Receiver-based Approach</a>.
 Discussion of different ways to integrate kafka that spark provides is out of scope of this post.
 Please checkout
 <a href="http://spark.apache.org/docs/latest/streaming-kafka-integration.html">kafka integration guide</a>
@@ -144,7 +144,7 @@ or use <a href="https://gist.github.com/antlypls/ac2917c6c4451ecc2980">this shel
 <p>Now let’s go to code and do some configuration.</p>
 
 <p>Spark <a href="https://spark.apache.org/docs/latest/submitting-applications.html#bundling-your-applications-dependencies">requires</a>
-packaging all projects' dependencies alongside application,
+packaging all project&rsquo;s dependencies alongside application,
 so we will build fat jar that contains app and all dependencies together.
 We will use sbt <a href="https://github.com/sbt/sbt-assembly">assembly plugin</a> for that.</p>
 
@@ -349,7 +349,7 @@ We will use following configuration:</p>
 <span class='line-number'>15</span>
 <span class='line-number'>16</span>
 </pre></td><td class='code'><pre><code class='yaml'><span class='line'><span class="l-Scalar-Plain">kafka</span><span class="p-Indicator">:</span>
-</span><span class='line'>  <span class="l-Scalar-Plain">image</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">antlypls/kafka</span>
+</span><span class='line'>  <span class="l-Scalar-Plain">image</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">antlypls/kafka-legacy</span>
 </span><span class='line'>  <span class="l-Scalar-Plain">environment</span><span class="p-Indicator">:</span>
 </span><span class='line'>    <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">KAFKA=localhost:9092</span>
 </span><span class='line'>    <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">ZOOKEEPER=localhost:2181</span>
@@ -370,7 +370,7 @@ We will use following configuration:</p>
 <p>A lot of things are going on here, let&rsquo;s go through it step by step.
 This <code>yml</code> file defines two services: <code>kafka</code> and <code>docker</code>.</p>
 
-<p><code>kafka</code> service runs <a href="https://github.com/antlypls/docker-kafka">image</a>
+<p><code>kafka</code> service runs <a href="https://github.com/antlypls/docker-kafka-legacy">image</a>
 based on <code>spotify/kafka</code> <a href="https://github.com/spotify/docker-kafka">repository</a>,
 this image provides everything we need for running kafka in one container:
 kafka broker and zookeeper server.</p>
@@ -553,6 +553,10 @@ Time: 1234567890000 ms
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2017/10/15/using-spark-sql-and-spark-streaming-together/">Using Spark SQL and Spark Streaming together</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2016/11/10/spark-shell-without-spark/">spark-shell without Spark</a>
       </li>
     
@@ -566,10 +570,6 @@ Time: 1234567890000 ms
     
       <li class="post">
         <a href="/blog/2016/01/30/processing-json-data-with-sparksql/">Processing JSON data with Spark&nbsp;SQL</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2015/12/02/how-to-write-data-into-parquet/">How to Write Data into Parquet</a>
       </li>
     
   </ul>
@@ -586,7 +586,7 @@ Time: 1234567890000 ms
     </div>
   </div>
   <footer role="contentinfo"><p>
-  Copyright &copy; 2016 - Anatoliy Plastinin -
+  Copyright &copy; 2017 - Anatoliy Plastinin -
   <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
 </p>
 

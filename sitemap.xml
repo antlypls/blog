@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd" xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>http://blog.antlypls.com/blog/2017/10/15/using-spark-sql-and-spark-streaming-together/</loc>
+    <lastmod>2017-10-15T23:40:17+02:00</lastmod>
+  </url>
+  <url>
     <loc>http://blog.antlypls.com/blog/2016/11/10/spark-shell-without-spark/</loc>
     <lastmod>2016-11-10T00:20:57+01:00</lastmod>
   </url>
@@ -72,5 +76,11 @@
   </url>
   <url>
     <loc>http://blog.antlypls.com/blog/categories/scala/</loc>
+  </url>
+  <url>
+    <loc>http://blog.antlypls.com/blog/categories/spark-streaming/</loc>
+  </url>
+  <url>
+    <loc>http://blog.antlypls.com/blog/categories/spark-sql/</loc>
   </url>
 </urlset>
