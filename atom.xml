@@ -4,7 +4,7 @@
   <title><![CDATA[Thoughts Resampled]]></title>
   <link href="http://blog.antlypls.com/atom.xml" rel="self"/>
   <link href="http://blog.antlypls.com/"/>
-  <updated>2017-10-16T00:32:06+02:00</updated>
+  <updated>2017-10-16T00:52:29+02:00</updated>
   <id>http://blog.antlypls.com/</id>
   <author>
     <name><![CDATA[Anatoliy Plastinin]]></name>
@@ -1433,6 +1433,9 @@ this post provides you with easy steps on how to get development setup with Spar
 
 <!--more-->
 
+
+<p><strong>Update:</strong> This post is quite outdated, recent version of the tutorial is available
+<a href="http://blog.antlypls.com/blog/2017/10/15/using-spark-sql-and-spark-streaming-together/">here</a>.</p>
 
 <blockquote><p>Note:
 This walkthrough covers OS X and uses <a href="http://brew.sh/">Homebrew</a>,

@@ -4,7 +4,7 @@
   <title><![CDATA[Category: docker | Thoughts Resampled]]></title>
   <link href="http://blog.antlypls.com/blog/categories/docker/atom.xml" rel="self"/>
   <link href="http://blog.antlypls.com/"/>
-  <updated>2017-10-16T00:32:06+02:00</updated>
+  <updated>2017-10-16T00:52:29+02:00</updated>
   <id>http://blog.antlypls.com/</id>
   <author>
     <name><![CDATA[Anatoliy Plastinin]]></name>
@@ -460,6 +460,9 @@ If you've always wanted to try Spark Streaming, but never found a time to give i
 this post provides you with easy steps on how to get development setup with Spark and Kafka using Docker.
 
 <!--more-->
+
+**Update:** This post is quite outdated, recent version of the tutorial is available
+[here](/blog/2017/10/15/using-spark-sql-and-spark-streaming-together/).
 
 > Note:
 > This walkthrough covers OS X and uses [Homebrew](http://brew.sh/),
