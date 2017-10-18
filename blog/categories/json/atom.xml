@@ -4,7 +4,7 @@
   <title><![CDATA[Category: json | Thoughts Resampled]]></title>
   <link href="http://blog.antlypls.com/blog/categories/json/atom.xml" rel="self"/>
   <link href="http://blog.antlypls.com/"/>
-  <updated>2017-10-16T00:52:29+02:00</updated>
+  <updated>2017-10-18T20:59:31+02:00</updated>
   <id>http://blog.antlypls.com/</id>
   <author>
     <name><![CDATA[Anatoliy Plastinin]]></name>
@@ -12,6 +12,442 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[Using Spark SQL and Spark Streaming together]]></title>
+    <link href="http://blog.antlypls.com/blog/2017/10/15/using-spark-sql-and-spark-streaming-together/"/>
+    <updated>2017-10-15T23:40:17+02:00</updated>
+    <id>http://blog.antlypls.com/blog/2017/10/15/using-spark-sql-and-spark-streaming-together</id>
+    <content type="html"><![CDATA[It's been 2 years since I wrote [first tutorial][1] on how to setup local docker environment
+for running Spark Streaming jobs with Kafka.
+This post is the follow-up to the previous one, but a little bit more advanced and up to date.
+It shows basic working example of Spark application that uses Spark SQL to process data stream from Kafka.
+I'll also show how to run Spark application and setup local development environment with all components (ZooKeepr, Kafka)
+using [docker] and [docker-compose].
+
+<!--more-->
+
+**TL;DR** Check out [this repository](https://github.com/antlypls/spark-demos/tree/master/docker-spark-streaming-sql)
+if you just want to see the code of the complete example.
+
+> Note:
+> I assume that you already have [docker] and [docker-compose] installed on your machine.
+> See [previous post][1] for instructions how to setup docker with [docker-machine] on Mac OS,
+> or consult with [docker documentation].
+
+> Examples below show functionality for Spark 2.2 which is the latest version at the moment of writing.
+
+## Setting up Project with `sbt`
+
+Spark [requires](https://spark.apache.org/docs/latest/submitting-applications.html#bundling-your-applications-dependencies)
+packaging all project's dependencies alongside application,
+so we will build fat jar that contains app and all its dependencies together.
+In this tutorial we'll use [sbt] with [sbt-assembly] plugin to build a fat jar with our demo app.
+
+To add `sbt-assembly` to the project, create `project/plugins.sbt` file:
+
+<figure class='code'><figcaption><span>project/plugins.sbt</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="n">addSbtPlugin</span><span class="o">(</span><span class="s">&quot;com.eed3si9n&quot;</span> <span class="o">%</span> <span class="s">&quot;sbt-assembly&quot;</span> <span class="o">%</span> <span class="s">&quot;0.14.5&quot;</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+Now let's define build configuration in `build.sbt` file:
+
+<figure class='code'><figcaption><span>build.sbt</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="n">name</span> <span class="o">:=</span> <span class="s">&quot;kafka-spark-demo&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">scalaVersion</span> <span class="o">:=</span> <span class="s">&quot;2.11.11&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">val</span> <span class="n">sparkVersion</span> <span class="k">=</span> <span class="s">&quot;2.2.0&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">libraryDependencies</span> <span class="o">++=</span> <span class="nc">Seq</span><span class="o">(</span>
+</span><span class='line'>  <span class="s">&quot;org.apache.spark&quot;</span> <span class="o">%%</span> <span class="s">&quot;spark-core&quot;</span> <span class="o">%</span> <span class="n">sparkVersion</span> <span class="o">%</span> <span class="s">&quot;provided&quot;</span><span class="o">,</span>
+</span><span class='line'>  <span class="s">&quot;org.apache.spark&quot;</span> <span class="o">%%</span> <span class="s">&quot;spark-sql&quot;</span> <span class="o">%</span> <span class="n">sparkVersion</span> <span class="o">%</span> <span class="s">&quot;provided&quot;</span><span class="o">,</span>
+</span><span class='line'>  <span class="s">&quot;org.apache.spark&quot;</span> <span class="o">%%</span> <span class="s">&quot;spark-streaming&quot;</span> <span class="o">%</span> <span class="n">sparkVersion</span> <span class="o">%</span> <span class="s">&quot;provided&quot;</span><span class="o">,</span>
+</span><span class='line'>  <span class="s">&quot;org.apache.spark&quot;</span> <span class="o">%%</span> <span class="s">&quot;spark-streaming-kafka-0-10&quot;</span> <span class="o">%</span> <span class="n">sparkVersion</span> <span class="n">excludeAll</span><span class="o">(</span>
+</span><span class='line'>    <span class="nc">ExclusionRule</span><span class="o">(</span><span class="n">organization</span> <span class="k">=</span> <span class="s">&quot;org.spark-project.spark&quot;</span><span class="o">,</span> <span class="n">name</span> <span class="k">=</span> <span class="s">&quot;unused&quot;</span><span class="o">),</span>
+</span><span class='line'>    <span class="nc">ExclusionRule</span><span class="o">(</span><span class="n">organization</span> <span class="k">=</span> <span class="s">&quot;org.apache.spark&quot;</span><span class="o">,</span> <span class="n">name</span> <span class="k">=</span> <span class="s">&quot;spark-streaming&quot;</span><span class="o">),</span>
+</span><span class='line'>    <span class="nc">ExclusionRule</span><span class="o">(</span><span class="n">organization</span> <span class="k">=</span> <span class="s">&quot;org.apache.hadoop&quot;</span><span class="o">)</span>
+</span><span class='line'>  <span class="o">)</span>
+</span><span class='line'><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">target</span> <span class="n">in</span> <span class="n">assembly</span> <span class="o">:=</span> <span class="n">file</span><span class="o">(</span><span class="s">&quot;build&quot;</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">assemblyJarName</span> <span class="n">in</span> <span class="n">assembly</span> <span class="o">:=</span> <span class="n">s</span><span class="s">&quot;${name.value}.jar&quot;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+A few things are going there. First, we define versions of Scala and Spark.
+
+Next, we define dependencies.
+`spark-core`, `spark-sql` and `spark-streaming` are marked as `provided`
+because they are already included in the spark distribution.
+Also a few exclusion rules are specified for `spark-streaming-kafka-0-10`
+in order to exclude transitive dependencies that lead to assembly merge conflicts.
+
+Finally we override the fat jar file name and the target directory where the fat jar is saved.
+
+## Spark Streaming Application
+
+As an example we'll write simple application that processes json data from Kafka using Spark SQL.
+App will compute number of different actions in a stream of JSON events like this:
+
+    {"action":"update","timestamp":"2017-10-05T23:02:51Z"}
+
+
+Now let's jump into the code,
+I will walk through the steps for making Spark Streaming and Spark SQL work together.
+
+<figure class='code'><figcaption><span>src/main/scala/com/antlypls/blog/KafkaSparkDemo.scala</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+<span class='line-number'>67</span>
+<span class='line-number'>68</span>
+<span class='line-number'>69</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">package</span> <span class="nn">com.antlypls.blog</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">import</span> <span class="nn">org.apache.kafka.common.serialization.StringDeserializer</span>
+</span><span class='line'><span class="k">import</span> <span class="nn">org.apache.spark.sql.SparkSession</span>
+</span><span class='line'><span class="k">import</span> <span class="nn">org.apache.spark.sql.functions.count</span>
+</span><span class='line'><span class="k">import</span> <span class="nn">org.apache.spark.sql.types.</span><span class="o">{</span><span class="nc">StringType</span><span class="o">,</span> <span class="nc">StructType</span><span class="o">,</span> <span class="nc">TimestampType</span><span class="o">}</span>
+</span><span class='line'><span class="k">import</span> <span class="nn">org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe</span>
+</span><span class='line'><span class="k">import</span> <span class="nn">org.apache.spark.streaming.kafka010.KafkaUtils</span>
+</span><span class='line'><span class="k">import</span> <span class="nn">org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent</span>
+</span><span class='line'><span class="k">import</span> <span class="nn">org.apache.spark.streaming.</span><span class="o">{</span><span class="nc">Seconds</span><span class="o">,</span> <span class="nc">StreamingContext</span><span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">object</span> <span class="nc">KafkaSparkDemo</span> <span class="o">{</span>
+</span><span class='line'>  <span class="k">def</span> <span class="n">main</span><span class="o">(</span><span class="n">args</span><span class="k">:</span> <span class="kt">Array</span><span class="o">[</span><span class="kt">String</span><span class="o">])</span><span class="k">:</span> <span class="kt">Unit</span> <span class="o">=</span> <span class="o">{</span>
+</span><span class='line'>    <span class="c1">// Configurations for kafka consumer</span>
+</span><span class='line'>    <span class="k">val</span> <span class="n">kafkaBrokers</span> <span class="k">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="o">(</span><span class="s">&quot;KAFKA_BROKERS&quot;</span><span class="o">)</span>
+</span><span class='line'>    <span class="k">val</span> <span class="n">kafkaGroupId</span> <span class="k">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="o">(</span><span class="s">&quot;KAFKA_GROUP_ID&quot;</span><span class="o">)</span>
+</span><span class='line'>    <span class="k">val</span> <span class="n">kafkaTopic</span> <span class="k">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="o">(</span><span class="s">&quot;KAFKA_TOPIC&quot;</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Verify that all settings are set</span>
+</span><span class='line'>    <span class="n">require</span><span class="o">(</span><span class="n">kafkaBrokers</span><span class="o">.</span><span class="n">isDefined</span><span class="o">,</span> <span class="s">&quot;KAFKA_BROKERS has not been set&quot;</span><span class="o">)</span>
+</span><span class='line'>    <span class="n">require</span><span class="o">(</span><span class="n">kafkaGroupId</span><span class="o">.</span><span class="n">isDefined</span><span class="o">,</span> <span class="s">&quot;KAFKA_GROUP_ID has not been set&quot;</span><span class="o">)</span>
+</span><span class='line'>    <span class="n">require</span><span class="o">(</span><span class="n">kafkaTopic</span><span class="o">.</span><span class="n">isDefined</span><span class="o">,</span> <span class="s">&quot;KAFKA_TOPIC has not been set&quot;</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Create Spark Session</span>
+</span><span class='line'>    <span class="k">val</span> <span class="n">spark</span> <span class="k">=</span> <span class="nc">SparkSession</span>
+</span><span class='line'>      <span class="o">.</span><span class="n">builder</span><span class="o">()</span>
+</span><span class='line'>      <span class="o">.</span><span class="n">appName</span><span class="o">(</span><span class="s">&quot;KafkaSparkDemo&quot;</span><span class="o">)</span>
+</span><span class='line'>      <span class="o">.</span><span class="n">getOrCreate</span><span class="o">()</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">import</span> <span class="nn">spark.implicits._</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Create Streaming Context and Kafka Direct Stream with provided settings and 10 seconds batches</span>
+</span><span class='line'>    <span class="k">val</span> <span class="n">ssc</span> <span class="k">=</span> <span class="k">new</span> <span class="nc">StreamingContext</span><span class="o">(</span><span class="n">spark</span><span class="o">.</span><span class="n">sparkContext</span><span class="o">,</span> <span class="nc">Seconds</span><span class="o">(</span><span class="mi">10</span><span class="o">))</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">val</span> <span class="n">kafkaParams</span> <span class="k">=</span> <span class="nc">Map</span><span class="o">[</span><span class="kt">String</span>, <span class="kt">Object</span><span class="o">](</span>
+</span><span class='line'>      <span class="s">&quot;bootstrap.servers&quot;</span> <span class="o">-&gt;</span> <span class="n">kafkaBrokers</span><span class="o">.</span><span class="n">get</span><span class="o">,</span>
+</span><span class='line'>      <span class="s">&quot;key.deserializer&quot;</span> <span class="o">-&gt;</span> <span class="n">classOf</span><span class="o">[</span><span class="kt">StringDeserializer</span><span class="o">],</span>
+</span><span class='line'>      <span class="s">&quot;value.deserializer&quot;</span> <span class="o">-&gt;</span> <span class="n">classOf</span><span class="o">[</span><span class="kt">StringDeserializer</span><span class="o">],</span>
+</span><span class='line'>      <span class="s">&quot;group.id&quot;</span> <span class="o">-&gt;</span> <span class="n">kafkaGroupId</span><span class="o">.</span><span class="n">get</span><span class="o">,</span>
+</span><span class='line'>      <span class="s">&quot;auto.offset.reset&quot;</span> <span class="o">-&gt;</span> <span class="s">&quot;latest&quot;</span>
+</span><span class='line'>    <span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">val</span> <span class="n">topics</span> <span class="k">=</span> <span class="nc">Array</span><span class="o">(</span><span class="n">kafkaTopic</span><span class="o">.</span><span class="n">get</span><span class="o">)</span>
+</span><span class='line'>    <span class="k">val</span> <span class="n">stream</span> <span class="k">=</span> <span class="nc">KafkaUtils</span><span class="o">.</span><span class="n">createDirectStream</span><span class="o">[</span><span class="kt">String</span>, <span class="kt">String</span><span class="o">](</span>
+</span><span class='line'>      <span class="n">ssc</span><span class="o">,</span>
+</span><span class='line'>      <span class="nc">PreferConsistent</span><span class="o">,</span>
+</span><span class='line'>      <span class="nc">Subscribe</span><span class="o">[</span><span class="kt">String</span>, <span class="kt">String</span><span class="o">](</span><span class="n">topics</span><span class="o">,</span> <span class="n">kafkaParams</span><span class="o">)</span>
+</span><span class='line'>    <span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Define a schema for JSON data</span>
+</span><span class='line'>    <span class="k">val</span> <span class="n">schema</span> <span class="k">=</span> <span class="k">new</span> <span class="nc">StructType</span><span class="o">()</span>
+</span><span class='line'>      <span class="o">.</span><span class="n">add</span><span class="o">(</span><span class="s">&quot;action&quot;</span><span class="o">,</span> <span class="nc">StringType</span><span class="o">)</span>
+</span><span class='line'>      <span class="o">.</span><span class="n">add</span><span class="o">(</span><span class="s">&quot;timestamp&quot;</span><span class="o">,</span> <span class="nc">TimestampType</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Process batches:</span>
+</span><span class='line'>    <span class="c1">// Parse JSON and create Data Frame</span>
+</span><span class='line'>    <span class="c1">// Execute computation on that Data Frame and print result</span>
+</span><span class='line'>    <span class="n">stream</span><span class="o">.</span><span class="n">foreachRDD</span> <span class="o">{</span> <span class="o">(</span><span class="n">rdd</span><span class="o">,</span> <span class="n">time</span><span class="o">)</span> <span class="k">=&gt;</span>
+</span><span class='line'>      <span class="k">val</span> <span class="n">data</span> <span class="k">=</span> <span class="n">rdd</span><span class="o">.</span><span class="n">map</span><span class="o">(</span><span class="n">record</span> <span class="k">=&gt;</span> <span class="n">record</span><span class="o">.</span><span class="n">value</span><span class="o">)</span>
+</span><span class='line'>      <span class="k">val</span> <span class="n">json</span> <span class="k">=</span> <span class="n">spark</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">schema</span><span class="o">(</span><span class="n">schema</span><span class="o">).</span><span class="n">json</span><span class="o">(</span><span class="n">data</span><span class="o">)</span>
+</span><span class='line'>      <span class="k">val</span> <span class="n">result</span> <span class="k">=</span> <span class="n">json</span><span class="o">.</span><span class="n">groupBy</span><span class="o">(</span><span class="n">$</span><span class="s">&quot;action&quot;</span><span class="o">).</span><span class="n">agg</span><span class="o">(</span><span class="n">count</span><span class="o">(</span><span class="s">&quot;*&quot;</span><span class="o">).</span><span class="n">alias</span><span class="o">(</span><span class="s">&quot;count&quot;</span><span class="o">))</span>
+</span><span class='line'>      <span class="n">result</span><span class="o">.</span><span class="n">show</span>
+</span><span class='line'>    <span class="o">}</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">// Start Stream</span>
+</span><span class='line'>    <span class="n">ssc</span><span class="o">.</span><span class="n">start</span><span class="o">()</span>
+</span><span class='line'>    <span class="n">ssc</span><span class="o">.</span><span class="n">awaitTermination</span><span class="o">()</span>
+</span><span class='line'>  <span class="o">}</span>
+</span><span class='line'><span class="o">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+Application requires following parameters to be defined via environment variables:
+
+* `KAFKA_BROKERS` — list of Kafka brokers used for initial discovery in the form `host1:port1,host2:port2,...`;
+* `KAFKA_GROUP_ID` — unique string that identifies the consumer group;
+* `KAFKA_TOPIC` — name of the topic to consume data from.
+
+Now you can build fat jar by running `sbt assembly` from project's root.
+After that you should find `kafka-spark-demo.jar` in the `build` directory.
+
+## Containers setup with `docker-compose`
+
+In order to run our example we need three things:
+
+* container with java where we'll run our app;
+* container with Kafka;
+* and container with ZooKeeper, required by Kafka.
+
+So let's define all three components with `docker-compose`.
+
+<figure class='code'><figcaption><span>docker-compose.yml</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+</pre></td><td class='code'><pre><code class='yaml'><span class='line'><span class="l-Scalar-Plain">version</span><span class="p-Indicator">:</span> <span class="s">&#39;3&#39;</span>
+</span><span class='line'>
+</span><span class='line'><span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+</span><span class='line'>  <span class="l-Scalar-Plain">zookeeper</span><span class="p-Indicator">:</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">image</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">antlypls/zookeeper</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="l-Scalar-Plain">kafka</span><span class="p-Indicator">:</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">image</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">antlypls/kafka</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">depends_on</span><span class="p-Indicator">:</span>
+</span><span class='line'>      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">zookeeper</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">environment</span><span class="p-Indicator">:</span>
+</span><span class='line'>      <span class="l-Scalar-Plain">KAFKA_CREATE_TOPICS</span><span class="p-Indicator">:</span> <span class="s">&quot;events:1:1&quot;</span>
+</span><span class='line'>      <span class="l-Scalar-Plain">KAFKA_ZOOKEEPER_CONNECT</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">zookeeper:2181</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="l-Scalar-Plain">java</span><span class="p-Indicator">:</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">image</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">openjdk:jre</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">command</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">bash</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">ports</span><span class="p-Indicator">:</span>
+</span><span class='line'>      <span class="p-Indicator">-</span> <span class="s">&quot;4040:4040&quot;</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">volumes</span><span class="p-Indicator">:</span>
+</span><span class='line'>      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">./build:/build</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">working_dir</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">/build</span>
+</span><span class='line'>    <span class="l-Scalar-Plain">depends_on</span><span class="p-Indicator">:</span>
+</span><span class='line'>      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">zookeeper</span>
+</span><span class='line'>      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">kafka</span>
+</span></code></pre></td></tr></table></div></figure>
+
+Please note that `zookeeper` image exposes port `2181` and `kafka` image exposes port `9092`,
+so those ports will be available inside containers.
+
+Also `kafka` image provides easy way to create topic at startup time via `KAFKA_CREATE_TOPICS` environment variable.
+In this example `events` topic with 1 partition and replication factor 1 will be created.
+`KAFKA_ZOOKEEPER_CONNECT` variable defines a connection string for the zookeeper connection.
+For more details about this containers see their source code
+([ZooKeeper](https://github.com/antlypls/docker-zookeeper), [Kafka](https://github.com/antlypls/docker-kafka)).
+
+In the end `docker-compose.yml` defines `java` service based on `openjdk:jre` image.
+We'll use this container to run our Spark application.
+That's why `build` directory with fat jar is mounted into container.
+Also Spark Web UI port `4040` is forwarded to the host machine as well,
+so you'll be able to open Web UI at runtime and see various stats and information about Spark execution.
+
+Now we miss only one part: Spark distribution itself.
+For this demo download it into `build` directory, for example you can do it with `wget`:
+
+    wget https://d3kbcqa49mib13.cloudfront.net/spark-2.2.0-bin-hadoop2.7.tgz
+
+And then unpack it `tar -xzf spark-2.2.0-bin-hadoop2.7.tgz`.
+Now you should have `spark-2.2.0-bin-hadoop2.7` directory inside `build`.
+At this point we don't need the distribution archive anymore, so you can delete it.
+
+## Running Demo Application
+
+And now we're finally all set to run the whole thing.
+
+Just run from project's root `docker-compose run --rm --service-ports java`.
+Here `--rm` flag makes `docker-compose` to delete corresponding spark container after run,
+and `--service-ports` flag publishes services' ports to host.
+
+Now you should be logged in to the `java` container's shell and have working directory set to `/build`.
+
+Here we'll just run demo app in a [local mode][3],
+I don't want to dive deep into how to run spark applications on a cluster with docker,
+as it deserves separate long blog post of its own.
+
+In the `java` container terminal run the following:
+
+    KAFKA_BROKERS=kafka:9092 \
+    KAFKA_GROUP_ID=spark-streaming-demo \
+    KAFKA_TOPIC=events \
+    spark-2.2.0-bin-hadoop2.7/bin/spark-submit \
+      --master local[*] \
+      --class com.antlypls.blog.KafkaSparkDemo kafka-spark-demo.jar
+
+You should see a lot of debug output from Spark, and in between all that debug noise you should see:
+
+    +------+-----+
+    |action|count|
+    +------+-----+
+    +------+-----+
+
+All batches are empty so far, since we haven't sent any data to the Kafka topic.
+So let's write some data into kafka topic, run this command
+
+    docker exec -it $(docker-compose ps -q kafka) kafka-console-producer.sh --broker-list localhost:9092 --topic events
+
+And paste into terminal messages like this:
+
+    {"action":"create","timestamp":"2017-10-05T23:01:17Z"}
+    {"action":"update","timestamp":"2017-10-05T23:01:19Z"}
+    {"action":"update","timestamp":"2017-10-05T23:02:51Z"}
+
+After that you should see output like:
+
+    +------+-----+
+    |action|count|
+    +------+-----+
+    |create|    1|
+    |update|    2|
+    +------+-----+
+
+## Final notes
+
+It might be hard to see actual app's output because of huge amounts of debug information.
+In order to set log level to `ERROR` put following `log4j.properties` file in `spark-2.2.0-bin-hadoop2.7/conf` directory:
+
+<figure class='code'><figcaption><span>spark-2.2.0-bin-hadoop2.7/conf/log4j.properties</span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='properties'><span class='line'><span class="na">log4j.rootCategory</span><span class="o">=</span><span class="s">INFO, console</span>
+</span><span class='line'><span class="na">log4j.appender.console</span><span class="o">=</span><span class="s">org.apache.log4j.ConsoleAppender</span>
+</span><span class='line'><span class="na">log4j.appender.console.target</span><span class="o">=</span><span class="s">System.err</span>
+</span><span class='line'><span class="na">log4j.appender.console.threshold</span><span class="o">=</span><span class="s">ERROR</span>
+</span><span class='line'><span class="na">log4j.appender.console.layout</span><span class="o">=</span><span class="s">org.apache.log4j.PatternLayout</span>
+</span><span class='line'><span class="na">log4j.appender.console.layout.ConversionPattern</span><span class="o">=</span><span class="s">%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n</span>
+</span></code></pre></td></tr></table></div></figure>
+
+`docker-compose` doesn't stop/delete linked containers when `run` command exits.
+So after you exited from `java` service session,
+you might want to run `docker-compose stop` and `docker-compose rm`
+to stop and delete `zookeeper` and `kafka` containers.
+
+It's also possible to implement same functionality using [Structured Streaming],
+but that is going to have to wait for another post.
+
+Check out [this post][4] if you want to learn more about JSON data processing with Spark.
+
+And that's basically all you need to know to start developing Spark Streaming applications and run/test them locally with docker.
+
+I hope that post was helpful!
+
+[1]: /blog/2015/10/05/getting-started-with-spark-streaming-using-docker/
+[2]: https://spark.apache.org/docs/2.2.0/streaming-kafka-0-10-integration.html
+[3]: https://spark.apache.org/docs/2.2.0/submitting-applications.html#master-urls
+[4]: /blog/2016/01/30/processing-json-data-with-sparksql/
+[Docker]: https://www.docker.com/
+[docker-compose]: https://docs.docker.com/compose/
+[docker-machine]: https://docs.docker.com/machine/
+[docker documentation]: https://docs.docker.com/engine/installation/
+[Apache Kafka]: https://kafka.apache.org/
+[Kafka Documentation]: https://kafka.apache.org/documentation/#introduction
+[sbt]: http://www.scala-sbt.org/
+[sbt-assembly]: https://github.com/sbt/sbt-assembly
+[Structured Streaming]: https://spark.apache.org/docs/latest/structured-streaming-programming-guide.html
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[Processing JSON data with Spark&nbsp;SQL]]></title>

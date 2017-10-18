@@ -4,7 +4,7 @@
   <title><![CDATA[Category: docker | Thoughts Resampled]]></title>
   <link href="http://blog.antlypls.com/blog/categories/docker/atom.xml" rel="self"/>
   <link href="http://blog.antlypls.com/"/>
-  <updated>2017-10-16T00:52:29+02:00</updated>
+  <updated>2017-10-18T20:59:31+02:00</updated>
   <id>http://blog.antlypls.com/</id>
   <author>
     <name><![CDATA[Anatoliy Plastinin]]></name>
@@ -427,6 +427,8 @@ to stop and delete `zookeeper` and `kafka` containers.
 It's also possible to implement same functionality using [Structured Streaming],
 but that is going to have to wait for another post.
 
+Check out [this post][4] if you want to learn more about JSON data processing with Spark.
+
 And that's basically all you need to know to start developing Spark Streaming applications and run/test them locally with docker.
 
 I hope that post was helpful!
@@ -434,6 +436,7 @@ I hope that post was helpful!
 [1]: /blog/2015/10/05/getting-started-with-spark-streaming-using-docker/
 [2]: https://spark.apache.org/docs/2.2.0/streaming-kafka-0-10-integration.html
 [3]: https://spark.apache.org/docs/2.2.0/submitting-applications.html#master-urls
+[4]: /blog/2016/01/30/processing-json-data-with-sparksql/
 [Docker]: https://www.docker.com/
 [docker-compose]: https://docs.docker.com/compose/
 [docker-machine]: https://docs.docker.com/machine/

@@ -4,7 +4,7 @@
   <title><![CDATA[Thoughts Resampled]]></title>
   <link href="http://blog.antlypls.com/atom.xml" rel="self"/>
   <link href="http://blog.antlypls.com/"/>
-  <updated>2017-10-16T00:52:29+02:00</updated>
+  <updated>2017-10-18T20:59:31+02:00</updated>
   <id>http://blog.antlypls.com/</id>
   <author>
     <name><![CDATA[Anatoliy Plastinin]]></name>
@@ -444,6 +444,8 @@ to stop and delete <code>zookeeper</code> and <code>kafka</code> containers.</p>
 
 <p>It&rsquo;s also possible to implement same functionality using <a href="https://spark.apache.org/docs/latest/structured-streaming-programming-guide.html">Structured Streaming</a>,
 but that is going to have to wait for another post.</p>
+
+<p>Check out <a href="http://blog.antlypls.com/blog/2016/01/30/processing-json-data-with-sparksql/">this post</a> if you want to learn more about JSON data processing with Spark.</p>
 
 <p>And that&rsquo;s basically all you need to know to start developing Spark Streaming applications and run/test them locally with docker.</p>
 

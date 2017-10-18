@@ -63,6 +63,9 @@
     <loc>http://blog.antlypls.com/blog/categories/parquet/</loc>
   </url>
   <url>
+    <loc>http://blog.antlypls.com/blog/categories/spark-sql/</loc>
+  </url>
+  <url>
     <loc>http://blog.antlypls.com/blog/categories/json/</loc>
   </url>
   <url>
@@ -79,8 +82,5 @@
   </url>
   <url>
     <loc>http://blog.antlypls.com/blog/categories/spark-streaming/</loc>
-  </url>
-  <url>
-    <loc>http://blog.antlypls.com/blog/categories/spark-sql/</loc>
   </url>
 </urlset>

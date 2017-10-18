@@ -4,7 +4,7 @@
   <title><![CDATA[Category: spark sql | Thoughts Resampled]]></title>
   <link href="http://blog.antlypls.com/blog/categories/spark-sql/atom.xml" rel="self"/>
   <link href="http://blog.antlypls.com/"/>
-  <updated>2017-10-16T00:52:29+02:00</updated>
+  <updated>2017-10-18T20:59:31+02:00</updated>
   <id>http://blog.antlypls.com/</id>
   <author>
     <name><![CDATA[Anatoliy Plastinin]]></name>
@@ -427,6 +427,8 @@ to stop and delete `zookeeper` and `kafka` containers.
 It's also possible to implement same functionality using [Structured Streaming],
 but that is going to have to wait for another post.
 
+Check out [this post][4] if you want to learn more about JSON data processing with Spark.
+
 And that's basically all you need to know to start developing Spark Streaming applications and run/test them locally with docker.
 
 I hope that post was helpful!
@@ -434,6 +436,7 @@ I hope that post was helpful!
 [1]: /blog/2015/10/05/getting-started-with-spark-streaming-using-docker/
 [2]: https://spark.apache.org/docs/2.2.0/streaming-kafka-0-10-integration.html
 [3]: https://spark.apache.org/docs/2.2.0/submitting-applications.html#master-urls
+[4]: /blog/2016/01/30/processing-json-data-with-sparksql/
 [Docker]: https://www.docker.com/
 [docker-compose]: https://docs.docker.com/compose/
 [docker-machine]: https://docs.docker.com/machine/
@@ -443,6 +446,352 @@ I hope that post was helpful!
 [sbt]: http://www.scala-sbt.org/
 [sbt-assembly]: https://github.com/sbt/sbt-assembly
 [Structured Streaming]: https://spark.apache.org/docs/latest/structured-streaming-programming-guide.html
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Processing JSON data with Spark&nbsp;SQL]]></title>
+    <link href="http://blog.antlypls.com/blog/2016/01/30/processing-json-data-with-sparksql/"/>
+    <updated>2016-01-30T10:08:44+01:00</updated>
+    <id>http://blog.antlypls.com/blog/2016/01/30/processing-json-data-with-sparksql</id>
+    <content type="html"><![CDATA[[Spark SQL](http://spark.apache.org/docs/latest/sql-programming-guide.html)
+provides built-in support for variety of data formats,
+including [JSON](https://en.wikipedia.org/wiki/JSON).
+Each new release of Spark contains enhancements that make use of DataFrames API with JSON data more convenient.
+Same time, there are a number of tricky aspects that might lead to unexpected results.
+In this post I'll show how to use Spark SQL to deal with JSON.
+
+<!--more-->
+
+> Examples below show functionality for Spark 1.6
+which is latest version at the moment of writing.
+
+JSON is very simple, human-readable and easy to use format.
+But its simplicity can lead to problems, since it's schema-less.
+Especially when you have to deal with unreliable third-party data sources,
+such services may return crazy JSON responses containing integer numbers as strings,
+or encode nulls different ways like `null`, `""` or even `"null"`.
+
+## Loading data
+
+You can read and parse JSON to DataFrame directly from file:
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">val</span> <span class="n">df</span> <span class="k">=</span> <span class="n">sqlContext</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">json</span><span class="o">(</span><span class="s">&quot;s3a://some-bucket/some-file.json&quot;</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+Please note Spark expects each line to be a separate JSON object,
+so it will fail if you'll try to load a pretty formatted JSON file.
+
+Also you read JSON data from `RDD[String]` object like:
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="c1">// construct RDD[Sting]</span>
+</span><span class='line'><span class="k">val</span> <span class="n">events</span> <span class="k">=</span> <span class="n">sc</span><span class="o">.</span><span class="n">parallelize</span><span class="o">(</span>
+</span><span class='line'>  <span class="s">&quot;&quot;&quot;{&quot;action&quot;:&quot;create&quot;,&quot;timestamp&quot;:&quot;2016-01-07T00:01:17Z&quot;}&quot;&quot;&quot;</span> <span class="o">::</span> <span class="nc">Nil</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// read it</span>
+</span><span class='line'><span class="k">val</span> <span class="n">df</span> <span class="k">=</span> <span class="n">sqlContext</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">json</span><span class="o">(</span><span class="n">events</span><span class="o">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+The latter option is also useful for reading JSON messages
+from Kafka with Spark Streaming.
+
+If you are just playing around with DataFrames
+you can use `show` method to print DataFrame to console.
+
+    scala> df.show
+    +------+--------------------+
+    |action|           timestamp|
+    +------+--------------------+
+    |create|2016-01-07T00:01:17Z|
+    +------+--------------------+
+
+
+## Schema inference and explicit definition
+
+Simply running `sqlContext.read.json(events)` will not load data,
+since DataFrames are evaluated lazily.
+But it will trigger schema inference,
+spark will go over RDD to determine schema that fits the data.
+
+In the shell you can print schema using `printSchema` method:
+
+    scala> df.printSchema
+    root
+     |-- action: string (nullable = true)
+     |-- timestamp: string (nullable = true)
+
+
+As you saw in the last example Spark inferred type of both columns as strings.
+
+It is possible to provide schema explicitly to avoid that extra scan:
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">val</span> <span class="n">schema</span> <span class="k">=</span> <span class="o">(</span><span class="k">new</span> <span class="nc">StructType</span><span class="o">).</span><span class="n">add</span><span class="o">(</span><span class="s">&quot;action&quot;</span><span class="o">,</span> <span class="nc">StringType</span><span class="o">).</span><span class="n">add</span><span class="o">(</span><span class="s">&quot;timestamp&quot;</span><span class="o">,</span> <span class="nc">TimestampType</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">val</span> <span class="n">df</span> <span class="k">=</span> <span class="n">sqlContext</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">schema</span><span class="o">(</span><span class="n">schema</span><span class="o">).</span><span class="n">json</span><span class="o">(</span><span class="n">events</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">df</span><span class="o">.</span><span class="n">show</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// +------+--------------------+</span>
+</span><span class='line'><span class="c1">// |action|           timestamp|</span>
+</span><span class='line'><span class="c1">// +------+--------------------+</span>
+</span><span class='line'><span class="c1">// |create|2016-01-07 01:01:...|</span>
+</span><span class='line'><span class="c1">// +------+--------------------+</span>
+</span></code></pre></td></tr></table></div></figure>
+
+As you might have noticed type of `timestamp` column is explicitly forced to be a `TimestampType`.
+It's important to understand that this type coercion is performed in JSON parser,
+and it has nothing to do with DataFrame's type casting functionality.
+Type coercions implemented in parser are somewhat limited and in some cases unobvious.
+Following example demonstrates it:
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">val</span> <span class="n">events</span> <span class="k">=</span> <span class="n">sc</span><span class="o">.</span><span class="n">parallelize</span><span class="o">(</span>
+</span><span class='line'>  <span class="s">&quot;&quot;&quot;{&quot;action&quot;:&quot;create&quot;,&quot;timestamp&quot;:1452121277}&quot;&quot;&quot;</span> <span class="o">::</span>
+</span><span class='line'>  <span class="s">&quot;&quot;&quot;{&quot;action&quot;:&quot;create&quot;,&quot;timestamp&quot;:&quot;1452121277&quot;}&quot;&quot;&quot;</span> <span class="o">::</span>
+</span><span class='line'>  <span class="s">&quot;&quot;&quot;{&quot;action&quot;:&quot;create&quot;,&quot;timestamp&quot;:&quot;&quot;}&quot;&quot;&quot;</span> <span class="o">::</span>
+</span><span class='line'>  <span class="s">&quot;&quot;&quot;{&quot;action&quot;:&quot;create&quot;,&quot;timestamp&quot;:null}&quot;&quot;&quot;</span> <span class="o">::</span>
+</span><span class='line'>  <span class="s">&quot;&quot;&quot;{&quot;action&quot;:&quot;create&quot;,&quot;timestamp&quot;:&quot;null&quot;}&quot;&quot;&quot;</span> <span class="o">::</span>
+</span><span class='line'>  <span class="nc">Nil</span>
+</span><span class='line'><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">val</span> <span class="n">schema</span> <span class="k">=</span> <span class="o">(</span><span class="k">new</span> <span class="nc">StructType</span><span class="o">).</span><span class="n">add</span><span class="o">(</span><span class="s">&quot;action&quot;</span><span class="o">,</span> <span class="nc">StringType</span><span class="o">).</span><span class="n">add</span><span class="o">(</span><span class="s">&quot;timestamp&quot;</span><span class="o">,</span> <span class="nc">LongType</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">sqlContext</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">schema</span><span class="o">(</span><span class="n">schema</span><span class="o">).</span><span class="n">json</span><span class="o">(</span><span class="n">events</span><span class="o">).</span><span class="n">show</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// +------+----------+</span>
+</span><span class='line'><span class="c1">// |action| timestamp|</span>
+</span><span class='line'><span class="c1">// +------+----------+</span>
+</span><span class='line'><span class="c1">// |create|1452121277|</span>
+</span><span class='line'><span class="c1">// |  null|      null|</span>
+</span><span class='line'><span class="c1">// |create|      null|</span>
+</span><span class='line'><span class="c1">// |create|      null|</span>
+</span><span class='line'><span class="c1">// |  null|      null|</span>
+</span><span class='line'><span class="c1">// +------+----------+</span>
+</span></code></pre></td></tr></table></div></figure>
+
+Frankly that is not a result that one can expect.
+Look at 2nd row in the result set, as you may see, there is no conversion from string to integer.
+But here is one more big problem, if you try to set type for which parser doesn't has conversion,
+it won't simply discard value and set that field to `null`,
+instead it will consider entire row as incorrect, and set all fields to `null`s.
+The good news is that you can read all values as strings.
+
+## Type casting
+
+If you can't be sure in a quality of you data,
+the best option is to explicitly provide schema forcing `StringType` for all untrusted fields
+to avoid extra RDD scan, and then cast those columns to desired type:
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">val</span> <span class="n">schema</span> <span class="k">=</span> <span class="o">(</span><span class="k">new</span> <span class="nc">StructType</span><span class="o">).</span><span class="n">add</span><span class="o">(</span><span class="s">&quot;action&quot;</span><span class="o">,</span> <span class="nc">StringType</span><span class="o">).</span><span class="n">add</span><span class="o">(</span><span class="s">&quot;timestamp&quot;</span><span class="o">,</span> <span class="nc">StringType</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">sqlContext</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">schema</span><span class="o">(</span><span class="n">schema</span><span class="o">).</span><span class="n">json</span><span class="o">(</span><span class="n">events</span><span class="o">).</span><span class="n">select</span><span class="o">(</span><span class="n">$</span><span class="s">&quot;action&quot;</span><span class="o">,</span> <span class="n">$</span><span class="s">&quot;timestamp&quot;</span><span class="o">.</span><span class="n">cast</span><span class="o">(</span><span class="nc">LongType</span><span class="o">)).</span><span class="n">show</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// +------+----------+</span>
+</span><span class='line'><span class="c1">// |action| timestamp|</span>
+</span><span class='line'><span class="c1">// +------+----------+</span>
+</span><span class='line'><span class="c1">// |create|1452121277|</span>
+</span><span class='line'><span class="c1">// |create|1452121277|</span>
+</span><span class='line'><span class="c1">// |create|      null|</span>
+</span><span class='line'><span class="c1">// |create|      null|</span>
+</span><span class='line'><span class="c1">// |create|      null|</span>
+</span><span class='line'><span class="c1">// +------+----------+</span>
+</span></code></pre></td></tr></table></div></figure>
+
+Now that's more like a sane result.
+
+Spark's catalyst optimizer has a very powerful type casting functionality,
+let's see how we can parse UNIX timestamps from the previous example:
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">val</span> <span class="n">schema</span> <span class="k">=</span> <span class="o">(</span><span class="k">new</span> <span class="nc">StructType</span><span class="o">).</span><span class="n">add</span><span class="o">(</span><span class="s">&quot;action&quot;</span><span class="o">,</span> <span class="nc">StringType</span><span class="o">).</span><span class="n">add</span><span class="o">(</span><span class="s">&quot;timestamp&quot;</span><span class="o">,</span> <span class="nc">StringType</span><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">sqlContext</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">schema</span><span class="o">(</span><span class="n">schema</span><span class="o">).</span><span class="n">json</span><span class="o">(</span><span class="n">events</span><span class="o">)</span>
+</span><span class='line'>  <span class="o">.</span><span class="n">select</span><span class="o">(</span><span class="n">$</span><span class="s">&quot;action&quot;</span><span class="o">,</span> <span class="n">$</span><span class="s">&quot;timestamp&quot;</span><span class="o">.</span><span class="n">cast</span><span class="o">(</span><span class="nc">LongType</span><span class="o">).</span><span class="n">cast</span><span class="o">(</span><span class="nc">TimestampType</span><span class="o">))</span>
+</span><span class='line'>  <span class="o">.</span><span class="n">show</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// +------+--------------------+</span>
+</span><span class='line'><span class="c1">// |action|           timestamp|</span>
+</span><span class='line'><span class="c1">// +------+--------------------+</span>
+</span><span class='line'><span class="c1">// |create|2016-01-07 00:01:...|</span>
+</span><span class='line'><span class="c1">// |create|2016-01-07 00:01:...|</span>
+</span><span class='line'><span class="c1">// |create|                null|</span>
+</span><span class='line'><span class="c1">// |create|                null|</span>
+</span><span class='line'><span class="c1">// |create|                null|</span>
+</span><span class='line'><span class="c1">// +------+--------------------+</span>
+</span></code></pre></td></tr></table></div></figure>
+
+Spark allows to parse integer timestamps as a timestamp type,
+but right now (as of spark 1.6) there exists a difference in behavior:
+parser treats integer value as a number of milliseconds,
+but catalysts cast behavior is treat as a number of seconds.
+This behavior is about to change in Spark&nbsp;2.0
+(see [SPARK-12744](https://issues.apache.org/jira/browse/SPARK-12744)).
+
+## Handling nested objects
+
+Often in API responses useful data might be wrapped in a several layers of nested objects:
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='json'><span class='line'><span class="p">{</span>
+</span><span class='line'>  <span class="nt">&quot;payload&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>    <span class="nt">&quot;event&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span class='line'>      <span class="nt">&quot;action&quot;</span><span class="p">:</span> <span class="s2">&quot;create&quot;</span><span class="p">,</span>
+</span><span class='line'>      <span class="nt">&quot;timestamp&quot;</span><span class="p">:</span> <span class="mi">1452121277</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+Star (`*`) expansion makes it easier to unnest with such objects, for example:
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="k">val</span> <span class="n">vals</span> <span class="k">=</span> <span class="n">sc</span><span class="o">.</span><span class="n">parallelize</span><span class="o">(</span>
+</span><span class='line'>  <span class="s">&quot;&quot;&quot;{&quot;payload&quot;:{&quot;event&quot;:{&quot;action&quot;:&quot;create&quot;,&quot;timestamp&quot;:1452121277}}}&quot;&quot;&quot;</span> <span class="o">::</span>
+</span><span class='line'>  <span class="nc">Nil</span>
+</span><span class='line'><span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">val</span> <span class="n">schema</span> <span class="k">=</span> <span class="o">(</span><span class="k">new</span> <span class="nc">StructType</span><span class="o">)</span>
+</span><span class='line'>  <span class="o">.</span><span class="n">add</span><span class="o">(</span><span class="s">&quot;payload&quot;</span><span class="o">,</span> <span class="o">(</span><span class="k">new</span> <span class="nc">StructType</span><span class="o">)</span>
+</span><span class='line'>    <span class="o">.</span><span class="n">add</span><span class="o">(</span><span class="s">&quot;event&quot;</span><span class="o">,</span> <span class="o">(</span><span class="k">new</span> <span class="nc">StructType</span><span class="o">)</span>
+</span><span class='line'>      <span class="o">.</span><span class="n">add</span><span class="o">(</span><span class="s">&quot;action&quot;</span><span class="o">,</span> <span class="nc">StringType</span><span class="o">)</span>
+</span><span class='line'>      <span class="o">.</span><span class="n">add</span><span class="o">(</span><span class="s">&quot;timestamp&quot;</span><span class="o">,</span> <span class="nc">LongType</span><span class="o">)</span>
+</span><span class='line'>    <span class="o">)</span>
+</span><span class='line'>  <span class="o">)</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">sqlContext</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">schema</span><span class="o">(</span><span class="n">schema</span><span class="o">).</span><span class="n">json</span><span class="o">(</span><span class="n">vals</span><span class="o">).</span><span class="n">select</span><span class="o">(</span><span class="n">$</span><span class="s">&quot;payload.event.*&quot;</span><span class="o">).</span><span class="n">show</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// +------+----------+</span>
+</span><span class='line'><span class="c1">// |action| timestamp|</span>
+</span><span class='line'><span class="c1">// +------+----------+</span>
+</span><span class='line'><span class="c1">// |create|1452121277|</span>
+</span><span class='line'><span class="c1">// +------+----------+</span>
+</span></code></pre></td></tr></table></div></figure>
+
+If you need more control over column names,
+you can always use `as` method to rename columns, e.g.:
+
+<figure class='code'><figcaption><span></span></figcaption><div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='scala'><span class='line'><span class="n">sqlContext</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">schema</span><span class="o">(</span><span class="n">schema</span><span class="o">).</span><span class="n">json</span><span class="o">(</span><span class="n">vals</span><span class="o">)</span>
+</span><span class='line'>  <span class="o">.</span><span class="n">select</span><span class="o">(</span>
+</span><span class='line'>    <span class="n">$</span><span class="s">&quot;payload.event.action&quot;</span><span class="o">.</span><span class="n">as</span><span class="o">(</span><span class="s">&quot;event_action&quot;</span><span class="o">),</span>
+</span><span class='line'>    <span class="n">$</span><span class="s">&quot;payload.event.timestamp&quot;</span><span class="o">.</span><span class="n">as</span><span class="o">(</span><span class="s">&quot;event_timestamp&quot;</span><span class="o">)</span>
+</span><span class='line'>  <span class="o">).</span><span class="n">show</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">// +------------+---------------+</span>
+</span><span class='line'><span class="c1">// |event_action|event_timestamp|</span>
+</span><span class='line'><span class="c1">// +------------+---------------+</span>
+</span><span class='line'><span class="c1">// |      create|     1452121277|</span>
+</span><span class='line'><span class="c1">// +------------+---------------+</span>
+</span></code></pre></td></tr></table></div></figure>
+
+## Wrapping up
+
+That was quite a few tricks and things to keep in mind when dealing with JSON data.
+In conclusion I'd like to say obvious thing — do not disregard unit tests
+for data input and data transformations,
+especially when you have no control over data source.
+Also it will make you more confident doing upgrade to newer version of Spark,
+since parsing and casting behavior might change in the future.
 ]]></content>
   </entry>
   
