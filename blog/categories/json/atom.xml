@@ -4,7 +4,7 @@
   <title><![CDATA[Category: json | Thoughts Resampled]]></title>
   <link href="http://blog.antlypls.com/blog/categories/json/atom.xml" rel="self"/>
   <link href="http://blog.antlypls.com/"/>
-  <updated>2017-10-18T20:59:31+02:00</updated>
+  <updated>2017-10-29T12:06:41+01:00</updated>
   <id>http://blog.antlypls.com/</id>
   <author>
     <name><![CDATA[Anatoliy Plastinin]]></name>
@@ -497,8 +497,8 @@ Also you read JSON data from `RDD[String]` object like:
 </span><span class='line'><span class="k">val</span> <span class="n">df</span> <span class="k">=</span> <span class="n">sqlContext</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">json</span><span class="o">(</span><span class="n">events</span><span class="o">)</span>
 </span></code></pre></td></tr></table></div></figure>
 
-The latter option is also useful for reading JSON messages
-from Kafka with Spark Streaming.
+The latter option is also useful for reading JSON messages with Spark Streaming.
+Check out [this post][1] for example of how to process JSON data from Kafka using Spark Streaming.
 
 If you are just playing around with DataFrames
 you can use `show` method to print DataFrame to console.
@@ -786,12 +786,14 @@ you can always use `as` method to rename columns, e.g.:
 
 ## Wrapping up
 
-That was quite a few tricks and things to keep in mind when dealing with JSON data.
+That were quite a few tricks and things to keep in mind when dealing with JSON data.
 In conclusion I'd like to say obvious thing — do not disregard unit tests
 for data input and data transformations,
 especially when you have no control over data source.
 Also it will make you more confident doing upgrade to newer version of Spark,
 since parsing and casting behavior might change in the future.
+
+[1]: /blog/2017/10/15/using-spark-sql-and-spark-streaming-together/
 ]]></content>
   </entry>
   

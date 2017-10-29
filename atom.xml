@@ -4,7 +4,7 @@
   <title><![CDATA[Thoughts Resampled]]></title>
   <link href="http://blog.antlypls.com/atom.xml" rel="self"/>
   <link href="http://blog.antlypls.com/"/>
-  <updated>2017-10-18T20:59:31+02:00</updated>
+  <updated>2017-10-29T12:06:41+01:00</updated>
   <id>http://blog.antlypls.com/</id>
   <author>
     <name><![CDATA[Anatoliy Plastinin]]></name>
@@ -818,8 +818,8 @@ so it will fail if you&rsquo;ll try to load a pretty formatted JSON file.</p>
 </span></code></pre></td></tr></table></div></figure>
 
 
-<p>The latter option is also useful for reading JSON messages
-from Kafka with Spark Streaming.</p>
+<p>The latter option is also useful for reading JSON messages with Spark Streaming.
+Check out <a href="http://blog.antlypls.com/blog/2017/10/15/using-spark-sql-and-spark-streaming-together/">this post</a> for example of how to process JSON data from Kafka using Spark Streaming.</p>
 
 <p>If you are just playing around with DataFrames
 you can use <code>show</code> method to print DataFrame to console.</p>
@@ -1114,7 +1114,7 @@ you can always use <code>as</code> method to rename columns, e.g.:</p>
 
 <h2>Wrapping up</h2>
 
-<p>That was quite a few tricks and things to keep in mind when dealing with JSON data.
+<p>That were quite a few tricks and things to keep in mind when dealing with JSON data.
 In conclusion I&rsquo;d like to say obvious thing — do not disregard unit tests
 for data input and data transformations,
 especially when you have no control over data source.
