@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.4.555">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="dcterms.date" content="2016-04-29">
+<meta name="description" content="What can go wrong with data driven projects. Lessons learned from failed project.">
+
+<title>Sampling Random Thoughts - When Data Driven App Smells Bad</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="../../../../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../../../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../../../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../../../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../../../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../../../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../../../../">
+<link href="../../../../../favicon.png" rel="icon" type="image/png">
+<script src="../../../../../site_libs/quarto-html/quarto.js"></script>
+<script src="../../../../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../../../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../../../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../../../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../../../../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../../../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../../../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../../../../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+<script type="text/javascript">
+
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-47001001-2', 'auto');
+
+ga('send', {
+  hitType: 'pageview',
+  'anonymizeIp': true,
+});
+</script>
+
+
+<link rel="stylesheet" href="../../../../../styles.css">
+</head>
+
+<body class="nav-fixed">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top quarto-banner">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../../../../../index.html">
+    <span class="navbar-title">Sampling Random Thoughts</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="https://antlypls.com"> 
+<span class="menu-text">About</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+          <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">When Data Driven App Smells Bad</h1>
+                  <div>
+        <div class="description">
+          What can go wrong with data driven projects. Lessons learned from failed project.
+        </div>
+      </div>
+                          <div class="quarto-categories">
+                <div class="quarto-category">anti-patterns</div>
+                <div class="quarto-category">big data</div>
+                <div class="quarto-category">architecture</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">April 29, 2016</p>
+      </div>
+    </div>
+    
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#naive-productionizing" id="toc-naive-productionizing" class="nav-link active" data-scroll-target="#naive-productionizing">Naive Productionizing</a></li>
+  <li><a href="#csv-driven-architecture" id="toc-csv-driven-architecture" class="nav-link" data-scroll-target="#csv-driven-architecture">CSV Driven Architecture</a></li>
+  <li><a href="#overlooking-database-solutions" id="toc-overlooking-database-solutions" class="nav-link" data-scroll-target="#overlooking-database-solutions">Overlooking Database solutions</a></li>
+  <li><a href="#non-incremental-queries" id="toc-non-incremental-queries" class="nav-link" data-scroll-target="#non-incremental-queries">Non incremental queries</a></li>
+  <li><a href="#improper-scaling" id="toc-improper-scaling" class="nav-link" data-scroll-target="#improper-scaling">Improper scaling</a></li>
+  <li><a href="#reinventing-the-wheel" id="toc-reinventing-the-wheel" class="nav-link" data-scroll-target="#reinventing-the-wheel">Reinventing the wheel</a></li>
+  <li><a href="#takeaways" id="toc-takeaways" class="nav-link" data-scroll-target="#takeaways">Takeaways</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+
+<p>Recently I have been involved in reviewing one “<a href="https://twitter.com/wtrsld/status/424272437929205760">Big Data</a>” project. I can’t say that volume of data processed by that app was that big, but the project was treated as real big data project by people who developed it. They used <a href="http://hadoop.apache.org/">Hadoop</a> just because that is what you use for big data. And even project’s codename had phrase “Big Data” in it.</p>
+<p>In short, that project was a data analytics application with ETL, data warehouse and reporting. A variety of technologies were used to build it: Java, Hadoop, Python, <a href="http://pandas.pydata.org/">Pandas</a>, R with UI implemented in PHP and <a href="http://shiny.rstudio.com/">Shiny Apps</a> embedded as IFRAMEs. But honestly that project was a real mess. And everything that could go wrong actually went wrong. Yet it is a good example of common problems and anti-patterns that might happen with data analytics apps. So I’d like to talk about major ones.</p>
+<!--more-->
+<section id="naive-productionizing" class="level2">
+<h2 class="anchored" data-anchor-id="naive-productionizing">Naive Productionizing</h2>
+<p>There is nothing more permanent than prototypes. Code written as a demo or as a part of research becomes a part of a production system and entire system is built around that prototype code.</p>
+<p>It might happen as following. Data scientist starts research using a dump of data, usually in a CSV format, and as a result he/she has a few scripts, it might be <a href="http://jupyter.org/">Jupyter notebooks</a> written with python, R or etc. Then those notebooks are transformed into a bunch of standalone scripts with a few tweaks, so that scripts can interact with other parts of the system. But surprisingly code that worked well with sample data on a data scientist’s laptop doesn’t work with real data. So developers start to add more workarounds just to make those scripts working in a real production environment introducing more mess.</p>
+</section>
+<section id="csv-driven-architecture" class="level2">
+<h2 class="anchored" data-anchor-id="csv-driven-architecture">CSV Driven Architecture</h2>
+<p>You can find such architecture when somebody tries to glue multiple apps or services together passing data between them in CSV files. For example it can be multi step data analysis process, where each step is a separate script that gets and returns CSV data. There is a very big chance to fall in this if you are building system around existing notebooks, as mentioned in the previous section.</p>
+<p>There is nothing wrong with CSV format, it is good for development, research, data exploration or even as interchange format with external systems. But using CSV or any other text format (like JSON and etc.) as a storage for intermediate results is not efficient. CPU time is wasted during serialization/deserialization on writes/reads, not mentioning that text files take more space.</p>
+<p>In general you should avoid unnecessary data transformations. Try to do all steps in one job, so you don’t need any intermediate storage. If you need to reuse result of some step, prefer caching it in memory, Spark’s <a href="http://spark.apache.org/docs/latest/quick-start.html#caching">RDD</a> and <a href="http://spark.apache.org/docs/latest/sql-programming-guide.html#caching-data-in-memory">tables</a> caching are good examples. Another option is to load results into database in a temporary table and query it.</p>
+</section>
+<section id="overlooking-database-solutions" class="level2">
+<h2 class="anchored" data-anchor-id="overlooking-database-solutions">Overlooking Database solutions</h2>
+<p>Rather than develop queries on top of database, the solution is to read raw data, e.g.&nbsp;logs, and process records one-by-one without using database. There is even more extreme case exists, when database is used for storage, but raw data is unloaded to CSV or is read using DB cursor in memory before being processed. There are no excuses not to use SQL queries, if your data is not huge so relational databases can be used. Databases are designed to efficiently execute queries, so in most cases it has better performance than custom-written solution. Same also applies to NoSQL solutions.</p>
+<p>So try to design you system to write data into database and run analytical queries there. If the amount of data is big you still have options like <a href="http://www.memsql.com/product/">MemSQL</a>, or you can use columnar oriented storage like <a href="https://parquet.apache.org/">parquet</a> or <a href="https://orc.apache.org/">ORC File</a> with distributed query execution engines like <a href="https://prestodb.io/">Presto</a> or <a href="http://spark.apache.org/">Spark</a>. Of course there are cases when specific analysis required that’s might be hard to implement in query, but at least try to get as much as possible from storage layer. Push down filtering, aggregation and etc. to database and then process resulted smaller dataset with custom logic.</p>
+</section>
+<section id="non-incremental-queries" class="level2">
+<h2 class="anchored" data-anchor-id="non-incremental-queries">Non incremental queries</h2>
+<p>In general processing same data all over again is a bad smell. Suppose you need a per-month report, so you get all historical data and aggregate it by month. But in order to keep it up to date each month you regenerate entire report using all historical data. This solution is simple and yet is not efficient: it wastes resources crunching all historical data all over again. Making this query incremental is more efficient solution. In this case just add aggregated data for a new month to previously calculated result.</p>
+<p>Example above demonstrates very simple case, although in more complex cases like dashboards, it is possible to make incremental queries by updating previous result.</p>
+</section>
+<section id="improper-scaling" class="level2">
+<h2 class="anchored" data-anchor-id="improper-scaling">Improper scaling</h2>
+<p>Imagine you have a working app that processes data it might be a java app, python script, etc. And you are pretty satisfied with its performance. But one day app begins to crash with out of memory error. Suddenly the volume of data has increased, maybe due to natural growth, or you started to use the app with real data in production instead of testing environment. So you decide to simply use more powerful instance to run this app. Now days it’s so easy to do using cloud providers. But there are might be a couple of problems with such fix. First, this is not a long term solution, since amount of data volume might continue to increase and you will have to upgrade again and again. Second, if you simply used more powerful instance, chances are that you also got more CPU cores, which will do nothing if your app is single threaded, which is a case for python/pandas. So you will simply waste money on unused CPU resources.</p>
+<p>The opposite is also true. E.g. Hadoop is used when much simpler solutions are suitable. Those posts are <a href="https://www.chrisstucchio.com/blog/2013/hadoop_hatred.html">good examples</a> of <a href="http://aadrake.com/command-line-tools-can-be-235x-faster-than-your-hadoop-cluster.html">this point</a>.</p>
+<p>I don’t say that scaling up is worse than scaling out, the point is you must be aware of tradeoffs, limitation and consequences of each option. Be sure that you do not waste resources. Use solutions that support scaling out, or use cluster managers like <a href="http://mesos.apache.org/">Mesos</a> for better resources utilization.</p>
+</section>
+<section id="reinventing-the-wheel" class="level2">
+<h2 class="anchored" data-anchor-id="reinventing-the-wheel">Reinventing the wheel</h2>
+<p>There was a Hadoop job that generated CSV output in a project I mentioned in the beginning. And CSV generation was implemented by simply joining fields using comma delimiter. If you think that writing CSV is simple as concatenation of fields using comma, and parsing CSV is simple as splitting string by comma, then you are wrong. CSV is not only <a href="https://en.wikipedia.org/wiki/Comma-separated_values#Basic_rules">about commas</a>. So some rows in resulted CSV were malformed, making them not processable by other tools. The worst thing here is that script on a next step just skipped malformed rows without failing. And missing data from bad rows cannot be treated as random noise in data.</p>
+<p>So the lesson is never ever write your own data serialization library for CSV, JSON or any other format, many languages and frameworks has well-developed libraries for this. It is always a bad idea to reinvent the wheel, especially for such common tasks, like writing/reading CSV. But this anti-pattern is not only about data formats. It is also applies to integrating with third party services and etc.</p>
+</section>
+<section id="takeaways" class="level2">
+<h2 class="anchored" data-anchor-id="takeaways">Takeaways</h2>
+<p>I don’t aim to hate any particular technology like Hadoop, pandas or etc., you need to know your options.</p>
+<p>As mentioned in the beginning it all starts with wrong attempt to reuse research or prototype code in production. What could have been done instead? Yes, prototypes are important. And based on its results developers need to figure out what real business needs are. Since not all reports that data scientists came up with might be useful. Then understand what really happens in those prototype apps:</p>
+<ul>
+<li>What is input data and what is an output?</li>
+<li>What are business requirements?</li>
+<li>Is it real time reports or not?</li>
+<li>Ask how data transformations can be simplified: combining or even removing some intermediate steps?</li>
+<li>Understand what is better data storage, database, plain files, etc.</li>
+<li>Understand data flows, can all or some calculations be pushed down to the storage layer.</li>
+</ul>
+<p>And last but not least, do not forget to try out multiple options, experiment with different approaches and technologies, and run benchmarks.</p>
+<p>That’s all that I have at this moment. Surely there are much more anti-patters in data processing area. Have you seen any of those anti-patterns? I would love to hear your stories and thoughts on this topic.</p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp("https:\/\/blog\.antlypls\.com");
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

@@ -1,0 +1,16 @@
+[
+  {
+    "listing": "/index.html",
+    "items": [
+      "/blog/2020/07/10/terraform-localstack-demo/index.html",
+      "/blog/2017/10/15/using-spark-sql-and-spark-streaming-together/index.html",
+      "/blog/2016/11/10/spark-shell-without-spark/index.html",
+      "/blog/2016/04/29/when-data-driven-app-smells-bad/index.html",
+      "/blog/2016/02/29/spark-sql-and-parquet-files/index.html",
+      "/blog/2016/01/30/processing-json-data-with-sparksql/index.html",
+      "/blog/2015/12/02/how-to-write-data-into-parquet/index.html",
+      "/blog/2015/11/13/running-spark-shell-in-browser-with-apache-mesos-and-marathon/index.html",
+      "/blog/2015/10/05/getting-started-with-spark-streaming-using-docker/index.html"
+    ]
+  }
+]
